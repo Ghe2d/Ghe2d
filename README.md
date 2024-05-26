@@ -1,1 +1,1 @@
-# Ghe2d-rust
+# Ghe2d
