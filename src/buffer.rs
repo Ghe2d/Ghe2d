@@ -4,7 +4,8 @@ use image::{codecs::png::{CompressionType, FilterType, PngEncoder}, ImageBuffer,
 use raqote::DrawTarget;
 
 pub fn image_to_webp_buffer(dt: &DrawTarget, quality: f32) -> Result<Vec<u8>,  libwebp_sys::WebPEncodingError> {
-    let img: ImageBuffer<Rgba<u8>, Vec<_>> = image::ImageBuffer::new(dt.width() as u32, dt.height() as u32);
+    let mut img: ImageBuffer<Rgba<u8>, Vec<_>> = image::ImageBuffer::new(dt.width() as u32, dt.height() as u32);
+    raqote_to_image(&dt, &mut img);
     unsafe {
         let mut out_buf = std::ptr::null_mut();
         let stride = (img.width() * 4) as i32;
