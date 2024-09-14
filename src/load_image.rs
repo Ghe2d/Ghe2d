@@ -60,6 +60,6 @@ pub fn add_image_mut( dt: &mut DrawTarget, path: &str, x: f32, y: f32, width: f3
 }
 
 pub fn check_is_url_image(path: &str) -> bool{
-    let re = Regex::new(r"http(s)?://([/|.|\w|\s|-])*\.(?:jpg|gif|png|bmp)").unwrap();
+    let re = Regex::new(r"http(s)?://([/|.|\w|\s|-])*\.(?:jpg|gif|png|bmp|webp)").unwrap();
     re.is_match(path)
 }

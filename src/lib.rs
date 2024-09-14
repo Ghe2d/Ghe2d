@@ -2,10 +2,12 @@ pub mod text;
 pub mod load_image;
 pub mod utility;
 pub mod font;
+pub mod buffer;
 
 use std::fs::File;
 use std::io::copy;
 use std::io::Cursor;
+
 
 use raqote::DrawOptions;
 use raqote::DrawTarget;
@@ -40,15 +42,26 @@ impl Ghe2d {
         self.draw_target.write_png(path)
     }
 
-    pub fn save_with_buffer(&self, path: &str, buffer: Vec<u8>) -> Result<(), png::EncodingError> {
+    pub fn save_with_png(&self, path: &str, compression: CompressionType, filter: FilterType) -> Result<(), png::EncodingError> {
         let mut dest = File::create(path)?;
-        let mut content = Cursor::new(buffer);
+        let mut content = Cursor::new(self.get_png_buffer(compression, filter));
         copy(&mut content, &mut dest)?;
+        Ok(())
+    }
+
+    pub fn save_with_webp(&self, path: &str, quality: f32) -> Result<(), libwebp_sys::WebPEncodingError> {
+        let mut dest = File::create(path).unwrap();
+        let mut content = Cursor::new(self.get_webp_buffer(quality)?);
+        copy(&mut content, &mut dest).unwrap();
         Ok(())
     }
     
     pub fn get_png_buffer(&self, compression: CompressionType, filter: FilterType) -> Vec<u8> {
-        image_to_png_buffer(&self.draw_target, compression, filter)
+        buffer::image_to_png_buffer(&self.draw_target, compression, filter)
+    }
+
+    pub fn get_webp_buffer(&self, quality: f32) -> Result<Vec<u8>, libwebp_sys::WebPEncodingError> {
+        buffer::image_to_webp_buffer(&self.draw_target, quality)
     }
 
     pub fn draw_text(&mut self, load_font: font::LoadFont, text: String, x: f32, y: f32, size: f32, color: utility::Rgba) -> &Ghe2d {
@@ -71,36 +84,5 @@ impl Ghe2d {
         path_builder.arc(x, y, raduis, start, end);
         self.draw_target.fill( &path_builder.finish(), &source, &DrawOptions::default());
         self
-    }
-}
-
-fn image_to_png_buffer(dt: &DrawTarget, compression: CompressionType, filter: FilterType) -> Vec<u8> {
-    let mut img: ImageBuffer<Rgba<u8>, Vec<_>> = image::ImageBuffer::new(dt.width() as u32, dt.height() as u32);
-    raqote_to_image(&dt, &mut img);
-    let mut png: Vec<u8> = Vec::new();
-    let encoder =PngEncoder::new_with_quality(Cursor::new(&mut png), compression, filter);
-    encoder.write_image(&img.to_vec(), img.width(), img.height(), image::ExtendedColorType::Rgba8).unwrap();
-    png
-}
-
-fn raqote_to_image(dt: &DrawTarget, img: &mut RgbaImage) {
-    let mut i = 0;
-    for pixel in dt.get_data() {
-        let a = (pixel >> 24) & 0xffu32;
-        let mut r = (pixel >> 16) & 0xffu32;
-        let mut g = (pixel >> 8) & 0xffu32;
-        let mut b = (pixel >> 0) & 0xffu32;
-
-        if a > 0u32 {
-            r = r * 255u32 / a;
-            g = g * 255u32 / a;
-            b = b * 255u32 / a;
-        }
-
-        let x = i % img.width();
-        let y = i / img.width();
-
-        img.put_pixel(x, y, Rgba([r as u8, g as u8, b as u8, a as u8]));
-        i += 1;
     }
 }

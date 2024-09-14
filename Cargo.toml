@@ -16,11 +16,12 @@ include = [
 ]
 
 [dependencies]
-image = "0.25.1"
-raqote = "0.8.4"
+image = "0.25.2"
+raqote = "0.8.5"
 rusttype = "0.9.3"
-regex = "1.10.4"
+regex = "1.10.6"
 ar-reshaper = "1.5.0"
-reqwest = { version = "0.12.4", features = ["blocking"] }
+reqwest = { version = "0.12.7", features = ["blocking"] }
 num-integer = "0.1.46"
 png = "0.17.13"
+libwebp-sys = "0.10.0"
