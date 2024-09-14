@@ -11,7 +11,7 @@ use std::io::Cursor;
 
 use raqote::DrawOptions;
 use raqote::DrawTarget;
-use image::{codecs::png::{CompressionType, FilterType, PngEncoder}, ImageBuffer, ImageEncoder, Rgba, RgbaImage};
+use image::codecs::png::{CompressionType, FilterType};
 
 pub use raqote;
 pub use image;
