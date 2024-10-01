@@ -35,12 +35,12 @@ impl Ghe2d {
         }
     }
 
-    pub fn width(&self) {
-        self.width;
+    pub fn width(&self) -> u32 {
+        self.width
     }
 
-    pub fn height(&self) {
-        self.height;
+    pub fn height(&self) -> u32 {
+        self.height
     }
 
     pub fn save(&self, path: &str) -> Result<(), image::ImageError> {
