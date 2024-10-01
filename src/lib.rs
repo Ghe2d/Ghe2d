@@ -3,43 +3,48 @@ pub mod load_image;
 pub mod utility;
 pub mod font;
 pub mod buffer;
+pub mod rect;
+pub mod circle;
 
 use std::fs::File;
 use std::io::copy;
 use std::io::Cursor;
 
-
-use raqote::DrawOptions;
-use raqote::DrawTarget;
 use image::codecs::png::{CompressionType, FilterType};
 
-pub use raqote;
+pub use rusttype;
+pub use regex;
+pub use ar_reshaper;
 pub use image;
-use raqote::PathBuilder;
-use raqote::Source;
+pub use libwebp_sys;
+pub use png;
 
-// pub trait Shapes {
-//     fn new(width: i32, height: i32) -> Self;
-//     fn save(&self, path: &str) -> Result<(), png::EncodingError>;
-//     fn save_with_buffer(&self, path: &str, buffer: Vec<u8>) -> Result<(), png::EncodingError>;
-//     fn get_png_buffer(&self, compression: CompressionType, filter: FilterType) -> Vec<u8>;
-//     fn draw_text(self, font_path: String, text: String, x: f32, y: f32, size: f32, color: utility::Rgba) -> Self;
-// }
-
+#[derive(Clone)]
 pub struct Ghe2d {
-    pub draw_target : DrawTarget
+    pub image:image::RgbaImage,
+    width: u32,
+    height: u32
 }
 
 impl Ghe2d {
-    pub fn new(width: i32, height: i32) -> Ghe2d {
-        // DrawTarget::new(width, height)
+    pub fn new(width: u32, height: u32) -> Ghe2d {
         Ghe2d {
-            draw_target: DrawTarget::new(width, height)
+            image: image::RgbaImage::new(width, height),
+            width,
+            height
         }
     }
 
-    pub fn save(&self, path: &str) -> Result<(), png::EncodingError> {
-        self.draw_target.write_png(path)
+    pub fn width(&self) {
+        self.width;
+    }
+
+    pub fn height(&self) {
+        self.height;
+    }
+
+    pub fn save(&self, path: &str) -> Result<(), image::ImageError> {
+        self.image.save(path)
     }
 
     pub fn save_with_png(&self, path: &str, compression: CompressionType, filter: FilterType) -> Result<(), png::EncodingError> {
@@ -57,32 +62,30 @@ impl Ghe2d {
     }
     
     pub fn get_png_buffer(&self, compression: CompressionType, filter: FilterType) -> Vec<u8> {
-        buffer::image_to_png_buffer(&self.draw_target, compression, filter)
+        buffer::image_to_png_buffer(&self.image, compression, filter)
     }
 
     pub fn get_webp_buffer(&self, quality: f32) -> Result<Vec<u8>, libwebp_sys::WebPEncodingError> {
-        buffer::image_to_webp_buffer(&self.draw_target, quality)
+        buffer::image_to_webp_buffer(&self.image, quality)
     }
 
-    pub fn draw_text(&mut self, load_font: font::LoadFont, text: String, x: f32, y: f32, size: f32, color: utility::Rgba) -> &Ghe2d {
-        text::draw_text(&mut self.draw_target, load_font, text, x, y, size, color);
+    pub fn draw_text(&mut self, load_font: font::LoadFont, text: String, x: u32, y: u32, size: u32, color: utility::Rgba) -> &Ghe2d {
+        text::draw_text(&mut self.image, load_font, text, x, y, size, color);
         self
     }
 
-    pub fn load_image(&mut self, path: &str, x: f32, y: f32, width: f32, height: f32, is_circle: bool) -> &Ghe2d {
-        load_image::add_image_mut(&mut self.draw_target, path, x, y, width, height, is_circle);
+    pub fn load_image(&mut self, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
+        load_image::add_image_mut(&mut self.image, path, x, y, width, height, is_circle);
         self
     }
 
-    pub fn draw_rect(&mut self, x: f32, y: f32, width: f32, height: f32, source: Source) -> &Ghe2d {
-        self.draw_target.fill_rect(x, y, width, height, &source, &DrawOptions::default());
+    pub fn draw_rect(&mut self, x: u32, y: u32, width: u32, height: u32, color: utility::Rgba) -> &Ghe2d {
+        rect::draw_rect(&mut self.image, x, y, width, height, color);
         self
     }
 
-    pub fn draw_circle(&mut self, x: f32, y: f32, raduis: f32, start: f32, end: f32, source: Source) -> &Ghe2d {
-        let mut path_builder = PathBuilder::new();
-        path_builder.arc(x, y, raduis, start, end);
-        self.draw_target.fill( &path_builder.finish(), &source, &DrawOptions::default());
+    pub fn draw_circle(&mut self, x: u32, y: u32, raduis: u32, color: utility::Rgba) -> &Ghe2d {
+        circle::draw_circle(&mut self.image, x, y, raduis, color);
         self
     }
 }

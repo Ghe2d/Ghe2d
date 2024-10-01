@@ -1,5 +1,4 @@
 use std::str;
-use raqote::{Source, SolidSource, DrawTarget, DrawOptions};
 use regex::Regex;
 use rusttype::{Scale, point, PositionedGlyph};
 
@@ -7,13 +6,13 @@ use ar_reshaper::{config::LigaturesFlags, ReshaperConfig};
 
 use crate::font::LoadFont;
 
-pub fn draw_text(dt: &mut DrawTarget, load_font: LoadFont, text: String, x: f32, y: f32, size: f32, color: crate::utility::Rgba) {
-    let scale = Scale::uniform(size);
-    let offset = point(x, load_font.font.v_metrics(scale).ascent + y);
+pub fn draw_text(img: &mut image::RgbaImage, load_font: LoadFont, text: String, x: u32, y: u32, size: u32, color: crate::utility::Rgba) {
+    let scale = Scale::uniform(size as f32);
+    let offset = point(x as f32, load_font.font.v_metrics(scale).ascent as f32 + y as f32);
     let a = ar_reshaper::ArabicReshaper::new(ReshaperConfig::new(ar_reshaper::Language::ArabicV2, LigaturesFlags::none()));
     let _text = fix_arabic_text(&a.reshape(text.clone()));
     let lines:Vec<&str> = _text.split("\n").collect();
-    let mut large = 0;
+    let mut large: u32 = 0;
     let sy = y;
 
     for (i, line) in lines.iter().enumerate() {
@@ -23,22 +22,18 @@ pub fn draw_text(dt: &mut DrawTarget, load_font: LoadFont, text: String, x: f32,
                 glyph.draw(|x, y, v| {
                     let av = (color.a as f32 * v) as u8;
                     if av != 0 {
-                        let source = Source::Solid(SolidSource::from_unpremultiplied_argb(
-                            av, color.r, color.g, color.b
-                        ));
-                        let x = x as i32 + bounding_box.min.x;
-                        let y = y as i32 + bounding_box.min.y;
+                        let x = x + bounding_box.min.x as u32;
+                        let y = y + bounding_box.min.y as u32;
                         if i == 0 && large < y {
                             large = y;
                         }
-                        
-                        dt.fill_rect(
-                            (x + i as i32 * 1) as f32, 
-                            (y + i as i32 * (large as i32 - sy as i32)) as f32, 
-                            1., 
-                            1.,
-                            &source,
-                            &DrawOptions::default()
+                        super::rect::draw_rect(
+                            img,
+                            x as u32 + i as u32 * 1, 
+                            y as u32 + i as u32 * (large - sy), 
+                            1,
+                            1,
+                            super::utility::Rgba::new(av, color.r, color.g, color.b)
                         );
                     }
                 });

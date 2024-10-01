@@ -1,6 +1,6 @@
 [package]
 name = "ghe2d"
-version = "0.0.7"
+version = "0.0.8"
 rust-version = "1.77"
 edition = "2021"
 description = "A tool easy to make shapes"
@@ -17,7 +17,6 @@ include = [
 
 [dependencies]
 image = "0.25.2"
-raqote = "0.8.5"
 rusttype = "0.9.3"
 regex = "1.10.6"
 ar-reshaper = "1.5.0"
