@@ -1,4 +1,4 @@
-use std::str;
+// use std::str;
 use regex::Regex;
 use rusttype::{Scale, point, PositionedGlyph};
 
@@ -30,7 +30,7 @@ pub fn draw_text(img: &mut image::RgbaImage, load_font: LoadFont, text: String, 
                         super::rect::draw_rect(
                             img,
                             x as u32 + i as u32 * 1, 
-                            y as u32 + i as u32 * (large - sy), 
+                            y as u32 + i as u32 * (if large > sy { large - sy } else { 0 }), 
                             1,
                             1,
                             super::utility::Rgba::new(av, color.r, color.g, color.b)
