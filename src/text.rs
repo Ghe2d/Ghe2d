@@ -1,4 +1,3 @@
-// use std::str;
 use regex::Regex;
 use rusttype::{Scale, point, PositionedGlyph};
 
@@ -6,13 +5,13 @@ use ar_reshaper::{config::LigaturesFlags, ReshaperConfig};
 
 use crate::font::LoadFont;
 
-pub fn draw_text(img: &mut image::RgbaImage, load_font: LoadFont, text: String, x: u32, y: u32, size: u32, color: crate::utility::Rgba) {
-    let scale = Scale::uniform(size as f32);
-    let offset = point(x as f32, load_font.font.v_metrics(scale).ascent as f32 + y as f32);
+pub fn draw_text(img: &mut image::RgbaImage, load_font: LoadFont, text: String, x: f32, y: f32, size: f32, color: crate::utility::Rgba) {
+    let scale = Scale::uniform(size);
+    let offset = point(x, load_font.font.v_metrics(scale).ascent + y);
     let a = ar_reshaper::ArabicReshaper::new(ReshaperConfig::new(ar_reshaper::Language::ArabicV2, LigaturesFlags::none()));
     let _text = fix_arabic_text(&a.reshape(text.clone()));
     let lines:Vec<&str> = _text.split("\n").collect();
-    let mut large: u32 = 0;
+    let mut large = 0;
     let sy = y;
 
     for (i, line) in lines.iter().enumerate() {
@@ -22,18 +21,18 @@ pub fn draw_text(img: &mut image::RgbaImage, load_font: LoadFont, text: String, 
                 glyph.draw(|x, y, v| {
                     let av = (color.a as f32 * v) as u8;
                     if av != 0 {
-                        let x = x + bounding_box.min.x as u32;
-                        let y = y + bounding_box.min.y as u32;
+                        let x = x as i32 + bounding_box.min.x;
+                        let y = y as i32 + bounding_box.min.y;
                         if i == 0 && large < y {
                             large = y;
                         }
                         super::rect::draw_rect(
                             img,
-                            x as u32 + i as u32 * 1, 
-                            y as u32 + i as u32 * (if large > sy { large - sy } else { 0 }), 
+                            (x + i as i32 * 1) as u32,
+                            (y + i as i32 * (large as i32 - sy as i32))  as u32, 
                             1,
                             1,
-                            super::utility::Rgba::new(av, color.r, color.g, color.b)
+                            super::utility::Rgba::new(color.r, color.g, color.b, av)
                         );
                     }
                 });

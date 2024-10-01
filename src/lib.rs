@@ -70,7 +70,7 @@ impl Ghe2d {
     }
 
     pub fn draw_text(&mut self, load_font: font::LoadFont, text: String, x: u32, y: u32, size: u32, color: utility::Rgba) -> &Ghe2d {
-        text::draw_text(&mut self.image, load_font, text, x, y, size, color);
+        text::draw_text(&mut self.image, load_font, text, x as f32, y as f32, size as f32, color);
         self
     }
 

@@ -3,13 +3,17 @@ use image::{codecs::png::{CompressionType, FilterType, PngEncoder}, ImageEncoder
 
 pub fn image_to_webp_buffer(img: &image::RgbaImage, quality: f32) -> Result<Vec<u8>,  libwebp_sys::WebPEncodingError> {
     // raqote_to_image_for_webp(&dt, &mut img);
+    let mut n_img = img.clone();
+    for (x, y, pixel) in n_img.clone().enumerate_pixels() {
+        n_img.put_pixel(x, y, image::Rgba([pixel.0[2], pixel.0[1], pixel.0[0], pixel.0[3]]));
+    }
     unsafe {
         let mut out_buf = std::ptr::null_mut();
-        let stride = (img.width() * 4) as i32;
+        let stride = (n_img.width() * 4) as i32;
         let len = libwebp_sys::WebPEncodeBGRA(
-            img.as_ptr(),
-            img.width() as i32,
-            img.height() as i32,
+            n_img.as_ptr(),
+            n_img.width() as i32,
+            n_img.height() as i32,
             stride,
             quality,
             &mut out_buf
