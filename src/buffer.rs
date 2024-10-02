@@ -1,5 +1,5 @@
 use std::io::Cursor;
-use image::{codecs::png::{CompressionType, FilterType, PngEncoder}, GenericImageView, ImageEncoder};
+use image::{codecs::png::{CompressionType, FilterType, PngEncoder}, ImageEncoder};
 
 pub fn image_to_webp_buffer(img: &image::RgbaImage, quality: f32) -> Result<Vec<u8>,  libwebp_sys::WebPEncodingError> {
     let mut n_img = img.clone();
