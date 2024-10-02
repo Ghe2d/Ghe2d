@@ -1,8 +1,7 @@
 use std::io::Cursor;
-use image::{codecs::png::{CompressionType, FilterType, PngEncoder}, ImageEncoder};
+use image::{codecs::png::{CompressionType, FilterType, PngEncoder}, GenericImageView, ImageEncoder};
 
 pub fn image_to_webp_buffer(img: &image::RgbaImage, quality: f32) -> Result<Vec<u8>,  libwebp_sys::WebPEncodingError> {
-    // raqote_to_image_for_webp(&dt, &mut img);
     let mut n_img = img.clone();
     for (x, y, pixel) in n_img.clone().enumerate_pixels() {
         n_img.put_pixel(x, y, image::Rgba([pixel.0[2], pixel.0[1], pixel.0[0], pixel.0[3]]));
@@ -23,53 +22,48 @@ pub fn image_to_webp_buffer(img: &image::RgbaImage, quality: f32) -> Result<Vec<
 }
 
 pub fn image_to_png_buffer(img: &image::RgbaImage, compression: CompressionType, filter: FilterType) -> Vec<u8> {
-    // raqote_to_image(&dt, &mut img);
     let mut png: Vec<u8> = Vec::new();
     let encoder =PngEncoder::new_with_quality(Cursor::new(&mut png), compression, filter);
     encoder.write_image(&img.to_vec(), img.width(), img.height(), image::ExtendedColorType::Rgba8).unwrap();
     png
 }
 
-// pub fn raqote_to_image(dt: &DrawTarget, img: &mut RgbaImage) {
-//     let mut i = 0;
-//     for pixel in dt.get_data() {
-//         let a = (pixel >> 24) & 0xffu32;
-//         let mut r = (pixel >> 16) & 0xffu32;
-//         let mut g = (pixel >> 8) & 0xffu32;
-//         let mut b = (pixel >> 0) & 0xffu32;
+pub fn load_buffer_image(img: &mut image::RgbaImage, buffer: Vec<u8>, x: u32, y: u32, width: u32, height: u32, is_circle: bool) {
+    let load_image = image::load_from_memory(&buffer).expect("Failed to decode image");
+    let resize_image = 
+        image::imageops::resize(&load_image, width as u32, height as u32, image::imageops::FilterType::Nearest);
+    
+    if is_circle {
+        let cx = width / 2;
+        let cy = height / 2;
+        let radius = width.min(height) / 2;
+        let mut circle_img: image::RgbaImage = image::RgbaImage::new(width as u32, height as u32);
+        for x in 0..width as u32 {
+            for y in 0..height as u32 {
+                let dx = x - cx;
+                let dy = y - cy;
+                let dist = num_integer::Roots::sqrt(&(dx * dx + dy * dy)) as u32;
 
-//         if a > 0u32 {
-//             r = r * 255u32 / a;
-//             g = g * 255u32 / a;
-//             b = b * 255u32 / a;
-//         }
+                let pixel = resize_image.get_pixel(x, y);
 
-//         let x = i % img.width();
-//         let y = i / img.width();
-
-//         img.put_pixel(x, y, Rgba([r as u8, g as u8, b as u8, a as u8]));
-//         i += 1;
-//     }
-// }
-
-// pub fn raqote_to_image_for_webp(dt: &DrawTarget, img: &mut RgbaImage) {
-//     let mut i = 0;
-//     for pixel in dt.get_data() {
-//         let a = (pixel >> 24) & 0xffu32;
-//         let mut r = (pixel >> 0) & 0xffu32;
-//         let mut g = (pixel >> 8) & 0xffu32;
-//         let mut b = (pixel >> 16) & 0xffu32;
-
-//         if a > 0u32 {
-//             r = r * 255u32 / a;
-//             g = g * 255u32 / a;
-//             b = b * 255u32 / a;
-//         }
-
-//         let x = i % img.width();
-//         let y = i / img.width();
-
-//         img.put_pixel(x, y, Rgba([r as u8, g as u8, b as u8, a as u8]));
-//         i += 1;
-//     }
-// }
+                if dist < radius as u32 {
+                    circle_img.put_pixel(x, y, *pixel);
+                }
+            }
+        }
+        for (draw_x, draw_y, pixel,) in circle_img.enumerate_pixels() {
+            let [r, g, b, a] = pixel.0;
+            if pixel != &image::Rgba([0,0,0,0]) {
+                super::rect::draw_rect(img, draw_x + x, draw_y + y, 1, 1, super::utility::Rgba::new(r, g, b, a));
+            }
+        }
+    }
+    else {
+        for (draw_x, draw_y, pixel) in resize_image.enumerate_pixels() {
+            let [r, g, b, a] = pixel.0;
+            if pixel != &image::Rgba([0,0,0,0]) {
+                super::rect::draw_rect(img, draw_x + x, draw_y + y, 1, 1, super::utility::Rgba::new(r, g, b, a));
+            }
+        }
+    }
+}

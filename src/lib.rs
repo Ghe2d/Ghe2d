@@ -49,23 +49,23 @@ impl Ghe2d {
 
     pub fn save_with_png(&self, path: &str, compression: CompressionType, filter: FilterType) -> Result<(), png::EncodingError> {
         let mut dest = File::create(path)?;
-        let mut content = Cursor::new(self.get_png_buffer(compression, filter));
+        let mut content = Cursor::new(self.to_png_buffer(compression, filter));
         copy(&mut content, &mut dest)?;
         Ok(())
     }
 
     pub fn save_with_webp(&self, path: &str, quality: f32) -> Result<(), libwebp_sys::WebPEncodingError> {
         let mut dest = File::create(path).unwrap();
-        let mut content = Cursor::new(self.get_webp_buffer(quality)?);
+        let mut content = Cursor::new(self.to_webp_buffer(quality)?);
         copy(&mut content, &mut dest).unwrap();
         Ok(())
     }
     
-    pub fn get_png_buffer(&self, compression: CompressionType, filter: FilterType) -> Vec<u8> {
+    pub fn to_png_buffer(&self, compression: CompressionType, filter: FilterType) -> Vec<u8> {
         buffer::image_to_png_buffer(&self.image, compression, filter)
     }
 
-    pub fn get_webp_buffer(&self, quality: f32) -> Result<Vec<u8>, libwebp_sys::WebPEncodingError> {
+    pub fn to_webp_buffer(&self, quality: f32) -> Result<Vec<u8>, libwebp_sys::WebPEncodingError> {
         buffer::image_to_webp_buffer(&self.image, quality)
     }
 
@@ -86,6 +86,11 @@ impl Ghe2d {
 
     pub fn draw_circle(&mut self, x: u32, y: u32, raduis: u32, color: utility::Rgba) -> &Ghe2d {
         circle::draw_circle(&mut self.image, x, y, raduis, color);
+        self
+    }
+
+    pub fn from_buffer(&mut self, buffer: Vec<u8>, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
+        buffer::load_buffer_image(&mut self.image, buffer, x, y, width, height, is_circle);
         self
     }
 }

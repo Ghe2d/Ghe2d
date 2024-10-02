@@ -1,6 +1,6 @@
 [package]
 name = "ghe2d"
-version = "0.0.11"
+version = "0.0.12"
 rust-version = "1.77"
 edition = "2021"
 description = "A tool easy to make shapes"
@@ -18,9 +18,9 @@ include = [
 [dependencies]
 image = "0.25.2"
 rusttype = "0.9.3"
-regex = "1.10.6"
+regex = "1.11.0"
 ar-reshaper = "1.5.0"
-reqwest = { version = "0.12.7", features = ["blocking"] }
+reqwest = { version = "0.12.8", features = ["blocking"] }
 num-integer = "0.1.46"
-png = "0.17.13"
-libwebp-sys = "0.10.0"
+png = "0.17.14"
+libwebp-sys = "0.10.1"
