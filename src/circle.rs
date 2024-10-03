@@ -10,7 +10,7 @@ pub fn draw_circle(img: &mut image::RgbaImage, x: u32, y: u32, radius: u32, colo
                 let alpha = (alpha * 255.0) as u8;
                 let pixel = img.get_pixel(draw_x, draw_y);
                 let background = crate::utility::Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]);
-                let blend = crate::utility::Rgba::blend(&color, background, alpha);
+                let blend = crate::utility::Rgba::blend_with_alpha(&color, background, alpha);
                 img.put_pixel(draw_x as u32, draw_y as u32, blend);
             }
         }

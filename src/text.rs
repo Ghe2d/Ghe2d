@@ -10,7 +10,7 @@ pub fn draw_text(img: &mut image::RgbaImage, load_font: crate::font::LoadFont, t
     let line_height = scale.y;
 
     for (i, line) in lines.iter().enumerate() {
-        let offset = rusttype::point(x, (i as f32 * line_height) + y);
+        let offset = rusttype::point(x, (i as f32 * line_height) + load_font.font.v_metrics(scale).ascent + y);
         let glyphs: Vec<rusttype::PositionedGlyph> = load_font.font.layout(line, scale, offset).collect();
         for glyph in glyphs {
             if let Some(bounding_box) = glyph.pixel_bounding_box() {
@@ -21,11 +21,11 @@ pub fn draw_text(img: &mut image::RgbaImage, load_font: crate::font::LoadFont, t
                         let pixel = img.get_pixel(x as u32, y as u32);
                         let alpha = (v * 255.) as u8;
                         let background = crate::utility::Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]);
-                        let blend = crate::utility::Rgba::blend(&color, background, alpha);
+                        let blend = crate::utility::Rgba::blend_with_alpha(&color, background, alpha);
                         crate::rect::draw_rect(
                             img,
                             x as u32,
-                            y  as u32, 
+                            y as u32, 
                             1,
                             1,
                             crate::utility::Rgba::new(blend.0[0], blend.0[1], blend.0[2], blend.0[3])
