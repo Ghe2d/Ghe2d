@@ -30,12 +30,15 @@ impl Rgba {
     }
 
     pub fn blend(foreground: Self, background: Self) -> image::Rgba<u8> {
-        let r = (foreground.r as u16 + background.r as u16) / 2;
-        let g = (foreground.g as u16 + background.g as u16) / 2;
-        let b = (foreground.b as u16 + background.b as u16) / 2;
-        let a = (foreground.a as u16 + background.a as u16) / 2;
+        let alpha_fg = foreground.a as f32 / 255.0;
+        let alpha_bg = background.a as f32 / 255.0;
+        let combined_alpha = alpha_fg + alpha_bg * (1.0 - alpha_fg);
     
-        image::Rgba([r as u8, g as u8, b as u8, a as u8])
+        let r = (foreground.r as f32 * alpha_fg + background.r as f32 * alpha_bg * (1.0 - alpha_fg)) / combined_alpha;
+        let g = (foreground.g as f32 * alpha_fg + background.g as f32 * alpha_bg * (1.0 - alpha_fg)) / combined_alpha;
+        let b = (foreground.b as f32 * alpha_fg + background.b as f32 * alpha_bg * (1.0 - alpha_fg)) / combined_alpha;
+    
+        image::Rgba([r as u8, g as u8, b as u8, (combined_alpha * 255.0) as u8])
     }
 
     pub fn enhance_brightness(pixel: Self, distance: u32, edge_width: u32) -> image::Rgba<u8> {

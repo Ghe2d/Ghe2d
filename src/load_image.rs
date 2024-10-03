@@ -40,21 +40,13 @@ pub fn add_image_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, wi
                 let b_pixel = img.get_pixel(x, y);
                 let foreground = crate::utility::Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]);
                 let background = crate::utility::Rgba::new(b_pixel.0[0], b_pixel.0[1], b_pixel.0[2], b_pixel.0[3]);
-                let blend = crate::utility::Rgba::blend(foreground.clone(), background.clone());
-                let color: super::utility::Rgba;
-                if background.a > 0 && foreground.a < 200 {
-                    color = super::utility::Rgba::new(blend.0[0], blend.0[1], blend.0[2], blend.0[3]);
-                }
-                else {
-                    color = foreground;
-                }
-                super::rect::draw_rect(
-                    img,
+                let blend = crate::utility::Rgba::blend(foreground, background);
+                super::rect::draw_rect(img,
                     draw_x + x,
                     draw_y + y,
                     1,
                     1,
-                    color
+                    super::utility::Rgba::new(blend.0[0], blend.0[1], blend.0[2], blend.0[3])
                 );
             }
         }
@@ -65,21 +57,13 @@ pub fn add_image_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, wi
                 let b_pixel = img.get_pixel(x, y);
                 let foreground = crate::utility::Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]);
                 let background = crate::utility::Rgba::new(b_pixel.0[0], b_pixel.0[1], b_pixel.0[2], b_pixel.0[3]);
-                let blend = crate::utility::Rgba::blend(foreground.clone(), background.clone());
-                let color: super::utility::Rgba;
-                if background.a > 0 && foreground.a < 200 {
-                    color = super::utility::Rgba::new(blend.0[0], blend.0[1], blend.0[2], blend.0[3]);
-                }
-                else {
-                    color = foreground;
-                }
-                super::rect::draw_rect(
-                    img,
+                let blend = crate::utility::Rgba::blend(foreground, background);
+                super::rect::draw_rect(img,
                     draw_x + x,
                     draw_y + y,
                     1,
                     1,
-                    color
+                    super::utility::Rgba::new(blend.0[0], blend.0[1], blend.0[2], blend.0[3])
                 );
             }
         }
