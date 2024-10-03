@@ -95,9 +95,9 @@ pub fn check_is_url_image(path: &str) -> bool{
 
 fn distance_to_nearest_edge(x: u32, y: u32, width: u32, height: u32) -> u32 {
     let left = x;
-    let right = width - x - 1;
+    let right = if width + 1 > x { width - x - 1 } else { 0 };
     let top = y;
-    let bottom = height - y - 1;
+    let bottom = if height + 1 > x { height - y - 1 } else { 0 };
 
     *[left, right, top, bottom].iter().min().unwrap()
 }
