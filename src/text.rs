@@ -1,38 +1,34 @@
 use regex::Regex;
-use rusttype::{Scale, point, PositionedGlyph};
 
-use ar_reshaper::{config::LigaturesFlags, ReshaperConfig};
-
-use crate::font::LoadFont;
-
-pub fn draw_text(img: &mut image::RgbaImage, load_font: LoadFont, text: String, x: f32, y: f32, size: f32, color: crate::utility::Rgba) {
-    let scale = Scale::uniform(size);
-    let offset = point(x, load_font.font.v_metrics(scale).ascent + y);
-    let a = ar_reshaper::ArabicReshaper::new(ReshaperConfig::new(ar_reshaper::Language::ArabicV2, LigaturesFlags::none()));
-    let _text = fix_arabic_text(&a.reshape(text.clone()));
-    let lines:Vec<&str> = _text.split("\n").collect();
-    let mut large = 0;
-    let sy = y;
+pub fn draw_text(img: &mut image::RgbaImage, load_font: crate::font::LoadFont, text: String, x: f32, y: f32, size: f32, color: crate::utility::Rgba) {
+    let scale = rusttype::Scale::uniform(size);
+    let arabic_text = ar_reshaper::ArabicReshaper::new(
+        ar_reshaper::ReshaperConfig::new(ar_reshaper::Language::ArabicV2, ar_reshaper::config::LigaturesFlags::none())
+    );
+    let n_text = fix_arabic_text(&arabic_text.reshape(text.clone()));
+    let lines:Vec<&str> = n_text.split("\n").collect();
+    let line_height = scale.y;
 
     for (i, line) in lines.iter().enumerate() {
-        let glyphs: Vec<PositionedGlyph> = load_font.font.layout(line, scale, offset).collect();
+        let offset = rusttype::point(x, (i as f32 * line_height) + y);
+        let glyphs: Vec<rusttype::PositionedGlyph> = load_font.font.layout(line, scale, offset).collect();
         for glyph in glyphs {
             if let Some(bounding_box) = glyph.pixel_bounding_box() {
                 glyph.draw(|x, y, v| {
-                    let av = (color.a as f32 * v) as u8;
-                    if av != 0 {
-                        let x = x as i32 + bounding_box.min.x;
-                        let y = y as i32 + bounding_box.min.y;
-                        if i == 0 && large < y {
-                            large = y;
-                        }
-                        super::rect::draw_rect(
+                    let x = x as i32 + bounding_box.min.x;
+                    let y = y as i32 + bounding_box.min.y;
+                    {
+                        let pixel = img.get_pixel(x as u32, y as u32);
+                        let alpha = (v * 255.) as u8;
+                        let background = crate::utility::Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]);
+                        let blend = crate::utility::Rgba::blend(&color, background, alpha);
+                        crate::rect::draw_rect(
                             img,
-                            (x + i as i32 * 1) as u32,
-                            (y + i as i32 * (large as i32 - sy as i32))  as u32, 
+                            x as u32,
+                            y  as u32, 
                             1,
                             1,
-                            super::utility::Rgba::new(color.r, color.g, color.b, av)
+                            crate::utility::Rgba::new(blend.0[0], blend.0[1], blend.0[2], blend.0[3])
                         );
                     }
                 });
@@ -40,8 +36,6 @@ pub fn draw_text(img: &mut image::RgbaImage, load_font: LoadFont, text: String, 
         }
     }
 }
-
-
 
 fn fix_arabic_text(text: &str) -> String {
     let mut text_to_vet_u16: Vec<u16> = str::encode_utf16(text).collect();

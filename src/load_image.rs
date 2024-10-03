@@ -15,7 +15,7 @@ pub fn add_image_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, wi
     else {
         load_image = image::open(path).expect("Failed to load image");
     }
-    let resize_image = resize(&load_image, width as u32, height as u32, image::imageops::FilterType::Nearest);
+    let resize_image = resize(&load_image, width as u32, height as u32, image::imageops::FilterType::Lanczos3);
 
     if is_circle {
         let cx = width / 2;
