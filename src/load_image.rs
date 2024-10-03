@@ -37,17 +37,16 @@ pub fn add_image_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, wi
         }
         for (draw_x, draw_y, pixel,) in circle_img.enumerate_pixels() {
             if pixel != &Rgba([0,0,0,0]) {
+                let b_pixel = img.get_pixel(x, y);
                 let foreground = crate::utility::Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]);
-                let distance_to_edge = distance_to_nearest_edge(x, y, width, height);
-
+                let background = crate::utility::Rgba::new(b_pixel.0[0], b_pixel.0[1], b_pixel.0[2], b_pixel.0[3]);
+                let blend = crate::utility::Rgba::blend(foreground.clone(), background.clone());
                 let color: super::utility::Rgba;
-                let edge_width = 50;
-                if distance_to_edge < edge_width {
-                    let enhance_brightness = crate::utility::Rgba::enhance_brightness(foreground, distance_to_edge, edge_width);
-                    color = super::utility::Rgba::new(enhance_brightness.0[0], enhance_brightness.0[1], enhance_brightness.0[2], enhance_brightness.0[3]);
+                if background.a > 0 && foreground.a < 200 {
+                    color = super::utility::Rgba::new(blend.0[0], blend.0[1], blend.0[2], blend.0[3]);
                 }
                 else {
-                    color = super::utility::Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]);
+                    color = foreground;
                 }
                 super::rect::draw_rect(
                     img,
@@ -63,14 +62,13 @@ pub fn add_image_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, wi
     else {
         for (draw_x, draw_y, pixel) in resize_image.enumerate_pixels() {
             if pixel != &Rgba([0,0,0,0]) {
+                let b_pixel = img.get_pixel(x, y);
                 let foreground = crate::utility::Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]);
-                let distance_to_edge = distance_to_nearest_edge(x, y, width, height);
-                
+                let background = crate::utility::Rgba::new(b_pixel.0[0], b_pixel.0[1], b_pixel.0[2], b_pixel.0[3]);
+                let blend = crate::utility::Rgba::blend(foreground.clone(), background.clone());
                 let color: super::utility::Rgba;
-                let edge_width = 50;
-                if distance_to_edge < edge_width {
-                    let enhance_brightness = crate::utility::Rgba::enhance_brightness(foreground, distance_to_edge, edge_width);
-                    color = super::utility::Rgba::new(enhance_brightness.0[0], enhance_brightness.0[1], enhance_brightness.0[2], enhance_brightness.0[3]);
+                if background.a > 0 && foreground.a < 200 {
+                    color = super::utility::Rgba::new(blend.0[0], blend.0[1], blend.0[2], blend.0[3]);
                 }
                 else {
                     color = foreground;
@@ -91,13 +89,4 @@ pub fn add_image_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, wi
 pub fn check_is_url_image(path: &str) -> bool{
     let re = Regex::new(r"http(s)?://([/|.|\w|\s|-])*\.(?:jpg|gif|png|bmp|webp)").unwrap();
     re.is_match(path)
-}
-
-fn distance_to_nearest_edge(x: u32, y: u32, width: u32, height: u32) -> u32 {
-    let left = x;
-    let right = if width + 1 > x { width - x - 1 } else { 0 };
-    let top = y;
-    let bottom = if height + 1 > x { height - y - 1 } else { 0 };
-
-    *[left, right, top, bottom].iter().min().unwrap()
 }
