@@ -37,5 +37,15 @@ impl Rgba {
     
         image::Rgba([r as u8, g as u8, b as u8, a as u8])
     }
+
+    pub fn enhance_brightness(pixel: Self, distance: u32, edge_width: u32) -> image::Rgba<u8> {
+        let factor = 1.0 + (edge_width - distance) as f32 / edge_width as f32;
+    
+        let r = (pixel.r as f32 * factor).min(255.0) as u8;
+        let g = (pixel.g as f32 * factor).min(255.0) as u8;
+        let b = (pixel.b as f32 * factor).min(255.0) as u8;
+    
+        image::Rgba([r, g, b, pixel.a])
+    }
 }
 
