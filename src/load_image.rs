@@ -104,13 +104,12 @@ pub fn add_image_normal_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: 
         }
         for (draw_x, draw_y, pixel,) in circle_img.enumerate_pixels() {
             if pixel != &Rgba([0,0,0,0]) {
-                let b_pixel = img.get_pixel(x, y);
                 super::rect::draw_rect(img,
                     draw_x + x,
                     draw_y + y,
                     1,
                     1,
-                    super::utility::Rgba::new(b_pixel.0[0], b_pixel.0[1], b_pixel.0[2], b_pixel.0[3])
+                    super::utility::Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3])
                 );
             }
         }
@@ -118,13 +117,12 @@ pub fn add_image_normal_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: 
     else {
         for (draw_x, draw_y, pixel) in resize_image.enumerate_pixels() {
             if pixel != &Rgba([0,0,0,0]) {
-                let b_pixel = img.get_pixel(x, y);
                 super::rect::draw_rect(img,
                     draw_x + x,
                     draw_y + y,
                     1,
                     1,
-                    super::utility::Rgba::new(b_pixel.0[0], b_pixel.0[1], b_pixel.0[2], b_pixel.0[3])
+                    super::utility::Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3])
                 );
             }
         }
