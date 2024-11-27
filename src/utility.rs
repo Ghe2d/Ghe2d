@@ -38,9 +38,9 @@ impl Rgba {
         let r = (fg.r as f32 * alpha + bg.r as f32 * inv_alpha) as u8;
         let g = (fg.g as f32 * alpha + bg.g as f32 * inv_alpha) as u8;
         let b = (fg.b as f32 * alpha + bg.b as f32 * inv_alpha) as u8;
-        // let a = alpha as u8;
+        let a = background.a;
     
-        image::Rgba([r, g, b, 255])
+        image::Rgba([r, g, b, a])
     }
 
     pub fn marge(foreground: &Self, background: &Self) -> image::Rgba<u8> {
