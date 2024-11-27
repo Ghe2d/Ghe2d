@@ -228,38 +228,40 @@ pub fn add_image_marge_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u
                 }
             }
         }
-        for (draw_x, draw_y, pixel,) in circle_img.enumerate_pixels() {
-            if pixel != &Rgba([0,0,0,0]) {
-                let b_pixel = img.get_pixel(x, y);
-                let foreground = crate::utility::Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]);
-                let background = crate::utility::Rgba::new(b_pixel.0[0], b_pixel.0[1], b_pixel.0[2], b_pixel.0[3]);
-                let blend = crate::utility::Rgba::marge(&foreground, &background);
-                super::rect::draw_rect(img,
-                    draw_x + x,
-                    draw_y + y,
-                    1,
-                    1,
-                    super::utility::Rgba::new(blend.0[0], blend.0[1], blend.0[2], blend.0[3])
-                );
-            }
-        }
+        image::imageops::overlay(img, &circle_img, x as i64, y as i64);
+        // for (draw_x, draw_y, pixel,) in circle_img.enumerate_pixels() {
+        //     if pixel != &Rgba([0,0,0,0]) {
+        //         let b_pixel = img.get_pixel(x, y);
+        //         let foreground = crate::utility::Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]);
+        //         let background = crate::utility::Rgba::new(b_pixel.0[0], b_pixel.0[1], b_pixel.0[2], b_pixel.0[3]);
+        //         let blend = crate::utility::Rgba::marge(&foreground, &background);
+        //         super::rect::draw_rect(img,
+        //             draw_x + x,
+        //             draw_y + y,
+        //             1,
+        //             1,
+        //             super::utility::Rgba::new(blend.0[0], blend.0[1], blend.0[2], blend.0[3])
+        //         );
+        //     }
+        // }
     }
     else {
-        for (draw_x, draw_y, pixel) in resize_image.enumerate_pixels() {
-            if pixel != &Rgba([0,0,0,0]) {
-                let b_pixel = img.get_pixel(x, y);
-                let foreground = crate::utility::Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]);
-                let background = crate::utility::Rgba::new(b_pixel.0[0], b_pixel.0[1], b_pixel.0[2], b_pixel.0[3]);
-                let blend = crate::utility::Rgba::marge(&foreground, &background);
-                super::rect::draw_rect(img,
-                    draw_x + x,
-                    draw_y + y,
-                    1,
-                    1,
-                    super::utility::Rgba::new(blend.0[0], blend.0[1], blend.0[2], blend.0[3])
-                );
-            }
-        }
+        image::imageops::overlay(img, &resize_image, x as i64, y as i64);
+        // for (draw_x, draw_y, pixel) in resize_image.enumerate_pixels() {
+        //     if pixel != &Rgba([0,0,0,0]) {
+        //         let b_pixel = img.get_pixel(x, y);
+        //         let foreground = crate::utility::Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]);
+        //         let background = crate::utility::Rgba::new(b_pixel.0[0], b_pixel.0[1], b_pixel.0[2], b_pixel.0[3]);
+        //         let blend = crate::utility::Rgba::marge(&foreground, &background);
+        //         super::rect::draw_rect(img,
+        //             draw_x + x,
+        //             draw_y + y,
+        //             1,
+        //             1,
+        //             super::utility::Rgba::new(blend.0[0], blend.0[1], blend.0[2], blend.0[3])
+        //         );
+        //     }
+        // }
     }
 }
 
