@@ -43,6 +43,18 @@ impl Rgba {
         image::Rgba([r, g, b, 255])
     }
 
+    pub fn marge(foreground: &Self, background: &Self) -> image::Rgba<u8> {
+        let fg = foreground;
+        let bg = background;
+    
+        let r = ((fg.r as u16 + bg.r as u16) / 2) as u8;
+        let g = ((fg.g as u16 + bg.g as u16) / 2) as u8;
+        let b = ((fg.b as u16 + bg.b as u16) / 2) as u8;
+        let a = ((fg.a as u16 + bg.a as u16) / 2) as u8;
+    
+        image::Rgba([r, g, b, a])
+    }
+
     pub fn blend(foreground: Self, background: Self) -> image::Rgba<u8> {
         let alpha_fg = foreground.a as f32 / 255.0;
         let alpha_bg = background.a as f32 / 255.0;

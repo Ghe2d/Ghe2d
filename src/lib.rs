@@ -89,6 +89,11 @@ impl Ghe2d {
         self
     }
 
+    pub fn load_marge_image(&mut self, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
+        load_image::add_image_marge_mut(&mut self.image, path, x, y, width, height, is_circle);
+        self
+    }
+
     pub fn draw_rect(&mut self, x: u32, y: u32, width: u32, height: u32, color: utility::Rgba) -> &Ghe2d {
         rect::draw_rect(&mut self.image, x, y, width, height, color);
         self
