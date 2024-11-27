@@ -29,6 +29,20 @@ impl Rgba {
         image::Rgba([r, g, b, a])
     }
 
+    pub fn blend_alpha(foreground: &Self, background: &Self) -> image::Rgba<u8> {
+        let fg = foreground;
+        let bg = background;
+        let alpha = fg.a as f32 / 255.0;
+        let inv_alpha = 1.0 - alpha;
+    
+        let r = (fg.r as f32 * alpha + bg.r as f32 * inv_alpha) as u8;
+        let g = (fg.g as f32 * alpha + bg.g as f32 * inv_alpha) as u8;
+        let b = (fg.b as f32 * alpha + bg.b as f32 * inv_alpha) as u8;
+        // let a = alpha as u8;
+    
+        image::Rgba([r, g, b, 255])
+    }
+
     pub fn blend(foreground: Self, background: Self) -> image::Rgba<u8> {
         let alpha_fg = foreground.a as f32 / 255.0;
         let alpha_bg = background.a as f32 / 255.0;

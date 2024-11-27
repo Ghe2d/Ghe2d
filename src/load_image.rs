@@ -183,7 +183,7 @@ pub fn add_image_alpha_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u
                 let b_pixel = img.get_pixel(x, y);
                 let foreground = crate::utility::Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]);
                 let background = crate::utility::Rgba::new(b_pixel.0[0], b_pixel.0[1], b_pixel.0[2], b_pixel.0[3]);
-                let blend = crate::utility::Rgba::blend(foreground, background);
+                let blend = crate::utility::Rgba::blend_with_alpha(&foreground, background, b_pixel.0[3]);
                 super::rect::draw_rect(img,
                     draw_x + x,
                     draw_y + y,
