@@ -18,6 +18,8 @@ pub use ar_reshaper;
 pub use image;
 pub use libwebp_sys;
 pub use png;
+pub use reqwest;
+pub use num_integer;
 
 #[derive(Clone)]
 pub struct Ghe2d {
@@ -80,17 +82,12 @@ impl Ghe2d {
     }
 
     pub fn load_blend_image(&mut self, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
-        load_image::add_image_mut(&mut self.image, path, x, y, width, height, is_circle);
+        load_image::add_image_blend_mut(&mut self.image, path, x, y, width, height, is_circle);
         self
     }
 
-    pub fn load_alpha_image(&mut self, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
-        load_image::add_image_alpha_mut(&mut self.image, path, x, y, width, height, is_circle);
-        self
-    }
-
-    pub fn load_marge_image(&mut self, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
-        load_image::add_image_marge_mut(&mut self.image, path, x, y, width, height, is_circle);
+    pub fn load_overlay_image(&mut self, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
+        load_image::add_image_overlay_mut(&mut self.image, path, x, y, width, height, is_circle);
         self
     }
 
