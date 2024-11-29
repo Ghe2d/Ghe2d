@@ -76,18 +76,18 @@ impl Ghe2d {
         self
     }
 
-    pub fn load_normal_image(&mut self, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
-        load_image::add_image_normal_mut(&mut self.image, path, x, y, width, height, is_circle);
+    pub async fn load_normal_image(&mut self, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
+        load_image::add_image_normal_mut(&mut self.image, path, x, y, width, height, is_circle).await;
         self
     }
 
-    pub fn load_blend_image(&mut self, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
-        load_image::add_image_blend_mut(&mut self.image, path, x, y, width, height, is_circle);
+    pub async fn load_blend_image(&mut self, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
+        load_image::add_image_blend_mut(&mut self.image, path, x, y, width, height, is_circle).await;
         self
     }
 
-    pub fn load_overlay_image(&mut self, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
-        load_image::add_image_overlay_mut(&mut self.image, path, x, y, width, height, is_circle);
+    pub async fn load_overlay_image(&mut self, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
+        load_image::add_image_overlay_mut(&mut self.image, path, x, y, width, height, is_circle).await;
         self
     }
 

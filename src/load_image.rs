@@ -1,8 +1,8 @@
 use num_integer::Roots;
 
-pub fn add_image_blend_mut(img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) {
+pub async fn add_image_blend_mut(img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) {
 
-    let load_image = load_image(path, width, height, is_circle);
+    let load_image = load_image(path, width, height, is_circle).await;
 
     for (draw_x, draw_y, pixel,) in load_image.enumerate_pixels() {
         if pixel != &image::Rgba([0,0,0,0]) {
@@ -21,9 +21,9 @@ pub fn add_image_blend_mut(img: &mut image::RgbaImage, path: &str, x: u32, y: u3
     }
 }
 
-pub fn add_image_normal_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) {
+pub async fn add_image_normal_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) {
 
-    let load_image = load_image(path, width, height, is_circle);
+    let load_image = load_image(path, width, height, is_circle).await;
 
     image::imageops::replace(img, &load_image, x as i64, y as i64);
 
@@ -40,18 +40,18 @@ pub fn add_image_normal_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: 
     // }
 }
 
-pub fn add_image_overlay_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) {
-    let load_image = load_image(path, width, height, is_circle);
+pub async fn add_image_overlay_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) {
+    let load_image = load_image(path, width, height, is_circle).await;
     image::imageops::overlay(img, &load_image, x as i64, y as i64);
 }
 
-pub fn load_image(path: &str, width: u32, height: u32, is_circle: bool) -> image::RgbaImage {
+pub async fn load_image(path: &str, width: u32, height: u32, is_circle: bool) -> image::RgbaImage {
     
     let load_image: image::DynamicImage;
     
     if check_is_url_image(path) {
-        let resp = reqwest::blocking::get(path).expect("Failed to load image from URL");
-        let bytes = resp.bytes().expect("Failed to read image bytes");
+        let resp = reqwest::get(path).await.expect("Failed to load image from URL");
+        let bytes = resp.bytes().await.expect("Failed to read image bytes");
         load_image = image::load_from_memory(&bytes).expect("Failed to decode image");
     }
     else {
