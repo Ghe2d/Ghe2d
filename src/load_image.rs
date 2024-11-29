@@ -61,7 +61,7 @@ pub async fn load_image(path: &str, width: u32, height: u32, is_circle: bool) ->
     let r_img: image::RgbaImage;
 
     if width == load_image.width() && height == load_image.height() {
-        r_img = load_image.as_rgba8().unwrap().clone();
+        r_img = load_image.to_rgba8();
     } else {
         r_img = image::imageops::resize(&load_image, width as u32, height as u32, image::imageops::FilterType::Nearest);
     }
