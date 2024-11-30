@@ -1,6 +1,6 @@
 [package]
 name = "ghe2d"
-version = "0.0.30"
+version = "0.0.31"
 rust-version = "1.77"
 edition = "2021"
 description = "A tool easy to make shapes"

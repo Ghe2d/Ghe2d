@@ -101,8 +101,13 @@ impl Ghe2d {
         self
     }
 
-    pub fn from_buffer(&mut self, buffer: Vec<u8>, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
-        buffer::load_buffer_image(&mut self.image, buffer, x, y, width, height, is_circle);
+    pub fn from_buffer_to_overlay(&mut self, buffer: Vec<u8>, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
+        buffer::load_buffer_image_overlay(&mut self.image, buffer, x, y, width, height, is_circle);
+        self
+    }
+
+    pub fn from_buffer_to_normal(&mut self, buffer: Vec<u8>, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
+        buffer::load_buffer_image_normal(&mut self.image, buffer, x, y, width, height, is_circle);
         self
     }
 }
