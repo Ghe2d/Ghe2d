@@ -91,6 +91,7 @@ pub async fn load_image(path: &str, width: u32, height: u32, is_circle: bool) ->
 }
 
 pub fn check_is_url_image(path: &str) -> bool{
-    let re = regex::Regex::new(r"http(s)?://([/|.|\w|\s|-])*\.(?:jpg|gif|png|bmp|webp)").unwrap();
+    // let re = regex::Regex::new(r"http(s)?://([/|.|\w|\s|%|-])*\.(?:jpg|gif|png|bmp|webp)").unwrap();
+    let re = regex::Regex::new(r"http(s)?://([/|.|\w|\s|%|-])*").unwrap();
     re.is_match(path)
 }
