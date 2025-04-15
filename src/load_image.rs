@@ -1,10 +1,13 @@
 use num_integer::Roots;
 
-pub async fn add_image_blend_mut(img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) {
+pub async fn add_image_blend_mut(img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> Result<(), String>  {
 
     let load_image = load_image(path, width, height, is_circle).await;
+    if load_image.is_err() {
+        return Err(load_image.err().unwrap());
+    }
 
-    for (draw_x, draw_y, pixel,) in load_image.enumerate_pixels() {
+    for (draw_x, draw_y, pixel,) in load_image.unwrap().enumerate_pixels() {
         if pixel != &image::Rgba([0,0,0,0]) {
             let b_pixel = img.get_pixel(x, y);
             let foreground = crate::utility::Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]);
@@ -19,43 +22,55 @@ pub async fn add_image_blend_mut(img: &mut image::RgbaImage, path: &str, x: u32,
             );
         }
     }
+    Ok(())
 }
 
-pub async fn add_image_normal_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) {
+pub async fn add_image_normal_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> Result<(), String>  {
 
     let load_image = load_image(path, width, height, is_circle).await;
+    if load_image.is_err() {
+        return Err(load_image.err().unwrap());
+    }
 
-    image::imageops::replace(img, &load_image, x as i64, y as i64);
-
-    // for (draw_x, draw_y, pixel) in load_image.enumerate_pixels() {
-    //     if pixel != &Rgba([0,0,0,0]) {
-    //         super::rect::draw_rect(img,
-    //             draw_x + x,
-    //             draw_y + y,
-    //             1,
-    //             1,
-    //             super::utility::Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3])
-    //         );
-    //     }
-    // }
+    image::imageops::replace(img, &load_image.unwrap(), x as i64, y as i64);
+    Ok(())
 }
 
-pub async fn add_image_overlay_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) {
+pub async fn add_image_overlay_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> Result<(), String> {
     let load_image = load_image(path, width, height, is_circle).await;
-    image::imageops::overlay(img, &load_image, x as i64, y as i64);
+    if load_image.is_err() {
+        return Err(load_image.err().unwrap());
+    }
+
+    image::imageops::overlay(img, &load_image.unwrap(), x as i64, y as i64);
+    Ok(())
 }
 
-pub async fn load_image(path: &str, width: u32, height: u32, is_circle: bool) -> image::RgbaImage {
+pub async fn load_image(path: &str, width: u32, height: u32, is_circle: bool) -> Result<image::RgbaImage, String> {
     
     let load_image: image::DynamicImage;
     
     if check_is_url_image(path) {
-        let resp = reqwest::get(path).await.expect("Failed to load image from URL");
-        let bytes = resp.bytes().await.expect("Failed to read image bytes");
-        load_image = image::load_from_memory(&bytes).expect("Failed to decode image");
+        let resp = reqwest::get(path).await;
+        if resp.is_err() {
+            return Err("Failed to load image from URL".to_string());
+        }
+        let bytes = resp.unwrap().bytes().await;
+        if bytes.is_err() {
+            return Err("Failed to load image from URL".to_string());
+        }
+        let _load_image = image::load_from_memory(&bytes.unwrap());
+        if _load_image.is_err() {
+            return Err("Failed to decode image".to_string());
+        }
+        load_image = _load_image.unwrap();
     }
     else {
-        load_image = image::open(path).expect("Failed to load image");
+        let _load_image = image::open(path);
+        if _load_image.is_err() {
+            return Err("Failed to decode image".to_string());
+        }
+        load_image = _load_image.unwrap();
     }
 
     let r_img: image::RgbaImage;
@@ -84,9 +99,9 @@ pub async fn load_image(path: &str, width: u32, height: u32, is_circle: bool) ->
                 }
             }
         }
-        circle_img
+        Ok(circle_img)
     } else {
-        r_img
+        Ok(r_img)
     }
 }
 

@@ -28,18 +28,33 @@ pub fn image_to_png_buffer(img: &image::RgbaImage, compression: CompressionType,
     png
 }
 
-pub fn load_buffer_image_overlay(img: &mut image::RgbaImage, buffer: Vec<u8>, x: u32, y: u32, width: u32, height: u32, is_circle: bool) {
+pub fn load_buffer_image_overlay(img: &mut image::RgbaImage, buffer: Vec<u8>, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> Result<(), String>  {
     let load_image = load_buffer(buffer, width, height, is_circle);
-    image::imageops::overlay(img, &load_image, x as i64, y as i64);
+    if load_image.is_err() {
+        return Err(load_image.err().unwrap());
+    }
+    image::imageops::overlay(img, &load_image.unwrap(), x as i64, y as i64);
+    Ok(())
 }
 
-pub fn load_buffer_image_normal(img: &mut image::RgbaImage, buffer: Vec<u8>, x: u32, y: u32, width: u32, height: u32, is_circle: bool) {
+pub fn load_buffer_image_normal(img: &mut image::RgbaImage, buffer: Vec<u8>, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> Result<(), String> {
     let load_image = load_buffer(buffer, width, height, is_circle);
-    image::imageops::replace(img, &load_image, x as i64, y as i64);
+    if load_image.is_err() {
+        return Err(load_image.err().unwrap());
+    }
+    image::imageops::replace(img, &load_image.unwrap(), x as i64, y as i64);
+    Ok(())
 }
 
-pub fn load_buffer(buffer: Vec<u8>, width: u32, height: u32, is_circle: bool) -> image::RgbaImage {
-    let load_image = image::load_from_memory(&buffer).expect("Failed to decode image");
+pub fn load_buffer(buffer: Vec<u8>, width: u32, height: u32, is_circle: bool) -> Result<image::RgbaImage, String> {
+    if buffer.is_empty() {
+        return Err("Buffer is empty".to_string());
+    }
+    let load_image = image::load_from_memory(&buffer);
+    if load_image.is_err() {
+        return Err("Failed to load image from buffer".to_string());
+    }
+    let load_image = load_image.unwrap();
 
     let r_img: image::RgbaImage;
 
@@ -68,8 +83,8 @@ pub fn load_buffer(buffer: Vec<u8>, width: u32, height: u32, is_circle: bool) ->
                 }
             }
         }
-        circle_img
+        Ok(circle_img)
     } else {
-        r_img
+        Ok(r_img)
     }
 }

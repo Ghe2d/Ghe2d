@@ -9,6 +9,7 @@ pub mod circle;
 use std::fs::File;
 use std::io::copy;
 use std::io::Cursor;
+use std::str;
 
 use image::codecs::png::{CompressionType, FilterType};
 
@@ -22,10 +23,26 @@ pub use reqwest;
 pub use num_integer;
 
 #[derive(Clone)]
+pub enum ErrorKind {
+    LoadNormalImage,
+    LoadBlendImage,
+    LoadOverlayImage,
+    FromBufferToOverlay,
+    FromBufferToNormal
+}
+
+#[derive(Clone)]
+pub struct Error {
+    pub message: String,
+    pub kind: ErrorKind
+}
+
+#[derive(Clone)]
 pub struct Ghe2d {
     pub image:image::RgbaImage,
     width: u32,
-    height: u32
+    height: u32,
+    errors: Vec<Error>,
 }
 
 impl Ghe2d {
@@ -33,7 +50,8 @@ impl Ghe2d {
         Ghe2d {
             image: image::RgbaImage::new(width, height),
             width,
-            height
+            height,
+            errors: Vec::new()
         }
     }
 
@@ -77,17 +95,26 @@ impl Ghe2d {
     }
 
     pub async fn load_normal_image(&mut self, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
-        load_image::add_image_normal_mut(&mut self.image, path, x, y, width, height, is_circle).await;
+        let image = load_image::add_image_normal_mut(&mut self.image, path, x, y, width, height, is_circle).await;
+        if image.is_err() {
+            self.errors.push(Error {message: image.err().unwrap(), kind: ErrorKind::LoadNormalImage});
+        }
         self
     }
 
     pub async fn load_blend_image(&mut self, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
-        load_image::add_image_blend_mut(&mut self.image, path, x, y, width, height, is_circle).await;
+        let image = load_image::add_image_blend_mut(&mut self.image, path, x, y, width, height, is_circle).await;
+        if image.is_err() {
+            self.errors.push(Error {message: image.err().unwrap(), kind: ErrorKind::LoadBlendImage});
+        }
         self
     }
 
     pub async fn load_overlay_image(&mut self, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
-        load_image::add_image_overlay_mut(&mut self.image, path, x, y, width, height, is_circle).await;
+        let image = load_image::add_image_overlay_mut(&mut self.image, path, x, y, width, height, is_circle).await;
+        if image.is_err() {
+            self.errors.push(Error {message: image.err().unwrap(), kind: ErrorKind::LoadOverlayImage});
+        }
         self
     }
 
@@ -102,12 +129,18 @@ impl Ghe2d {
     }
 
     pub fn from_buffer_to_overlay(&mut self, buffer: Vec<u8>, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
-        buffer::load_buffer_image_overlay(&mut self.image, buffer, x, y, width, height, is_circle);
+        let image = buffer::load_buffer_image_overlay(&mut self.image, buffer, x, y, width, height, is_circle);
+        if image.is_err() {
+            self.errors.push(Error {message: image.err().unwrap(), kind: ErrorKind::FromBufferToOverlay});
+        }
         self
     }
 
     pub fn from_buffer_to_normal(&mut self, buffer: Vec<u8>, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
-        buffer::load_buffer_image_normal(&mut self.image, buffer, x, y, width, height, is_circle);
+        let image = buffer::load_buffer_image_normal(&mut self.image, buffer, x, y, width, height, is_circle);
+        if image.is_err() {
+            self.errors.push(Error {message: image.err().unwrap(), kind: ErrorKind::FromBufferToNormal});
+        }
         self
     }
 }
