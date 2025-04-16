@@ -28,7 +28,7 @@ pub fn image_to_png_buffer(img: &image::RgbaImage, compression: CompressionType,
     png
 }
 
-pub fn load_buffer_image_overlay(img: &mut image::RgbaImage, buffer: Vec<u8>, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<(), String>  {
+pub fn load_buffer_image_overlay(img: &mut image::RgbaImage, buffer: Vec<u8>, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<(), crate::ErrorMessage>  {
     let load_image = load_buffer(buffer, width, height, is_circle);
     if load_image.is_err() {
         return Err(load_image.err().unwrap());
@@ -37,7 +37,7 @@ pub fn load_buffer_image_overlay(img: &mut image::RgbaImage, buffer: Vec<u8>, x:
     Ok(())
 }
 
-pub fn load_buffer_image_normal(img: &mut image::RgbaImage, buffer: Vec<u8>, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<(), String> {
+pub fn load_buffer_image_normal(img: &mut image::RgbaImage, buffer: Vec<u8>, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<(), crate::ErrorMessage> {
     let load_image = load_buffer(buffer, width, height, is_circle);
     if load_image.is_err() {
         return Err(load_image.err().unwrap());
@@ -46,13 +46,13 @@ pub fn load_buffer_image_normal(img: &mut image::RgbaImage, buffer: Vec<u8>, x: 
     Ok(())
 }
 
-pub fn load_buffer(buffer: Vec<u8>, w: Option<u32>, h: Option<u32>, is_circle: bool) -> Result<image::RgbaImage, String> {
+pub fn load_buffer(buffer: Vec<u8>, w: Option<u32>, h: Option<u32>, is_circle: bool) -> Result<image::RgbaImage, crate::ErrorMessage> {
     if buffer.is_empty() {
-        return Err("Buffer is empty".to_string());
+        return Err(crate::ErrorMessage::BufferEmpty);
     }
     let load_image = image::load_from_memory(&buffer);
     if load_image.is_err() {
-        return Err("Failed to load image from buffer".to_string());
+        return Err(crate::ErrorMessage::FailedDecodeImage);
     }
     let load_image = load_image.unwrap();
 

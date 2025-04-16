@@ -31,9 +31,16 @@ pub enum ErrorKind {
     FromBufferToNormal
 }
 
+#[derive(Clone, Debug)]
+pub enum ErrorMessage {
+    BufferEmpty,
+    FailedLoadImage,
+    FailedDecodeImage
+}
+
 #[derive(Clone)]
 pub struct Error {
-    pub message: String,
+    pub message: ErrorMessage,
     pub kind: ErrorKind
 }
 
@@ -55,7 +62,7 @@ impl Ghe2d {
         }
     }
 
-    pub async fn new_by_load_from_path(path: &str, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<Self, String> {
+    pub async fn new_by_load_from_path(path: &str, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<Self, crate::ErrorMessage> {
         let image = load_image::load_image(path, width, height, is_circle).await;
         if image.is_err() {
             return Err(image.err().unwrap());
@@ -70,7 +77,7 @@ impl Ghe2d {
         })
     }
 
-    pub fn new_by_load_from_buffer(buffer: Vec<u8>, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<Self, String> {
+    pub fn new_by_load_from_buffer(buffer: Vec<u8>, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<Self, crate::ErrorMessage> {
         let image = buffer::load_buffer(buffer, width, height, is_circle);
         if image.is_err() {
             return Err(image.err().unwrap());

@@ -1,6 +1,6 @@
 use num_integer::Roots;
 
-pub async fn add_image_blend_mut(img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<(), String>  {
+pub async fn add_image_blend_mut(img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<(), crate::ErrorMessage>  {
 
     let load_image = load_image(path, width, height, is_circle).await;
     if load_image.is_err() {
@@ -25,7 +25,7 @@ pub async fn add_image_blend_mut(img: &mut image::RgbaImage, path: &str, x: u32,
     Ok(())
 }
 
-pub async fn add_image_normal_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<(), String>  {
+pub async fn add_image_normal_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<(), crate::ErrorMessage>  {
 
     let load_image = load_image(path, width, height, is_circle).await;
     if load_image.is_err() {
@@ -36,7 +36,7 @@ pub async fn add_image_normal_mut( img: &mut image::RgbaImage, path: &str, x: u3
     Ok(())
 }
 
-pub async fn add_image_overlay_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<(), String> {
+pub async fn add_image_overlay_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<(), crate::ErrorMessage> {
     let load_image = load_image(path, width, height, is_circle).await;
     if load_image.is_err() {
         return Err(load_image.err().unwrap());
@@ -46,29 +46,29 @@ pub async fn add_image_overlay_mut( img: &mut image::RgbaImage, path: &str, x: u
     Ok(())
 }
 
-pub async fn load_image(path: &str, w: Option<u32>, h: Option<u32>, is_circle: bool) -> Result<image::RgbaImage, String> {
+pub async fn load_image(path: &str, w: Option<u32>, h: Option<u32>, is_circle: bool) -> Result<image::RgbaImage, crate::ErrorMessage> {
     
     let load_image: image::DynamicImage;
     
     if check_is_url_image(path) {
         let resp = reqwest::get(path).await;
         if resp.is_err() {
-            return Err("Failed to load image from URL".to_string());
+            return Err(crate::ErrorMessage::FailedLoadImage);
         }
         let bytes = resp.unwrap().bytes().await;
         if bytes.is_err() {
-            return Err("Failed to load image from URL".to_string());
+            return Err(crate::ErrorMessage::FailedLoadImage);
         }
         let _load_image = image::load_from_memory(&bytes.unwrap());
         if _load_image.is_err() {
-            return Err("Failed to decode image".to_string());
+            return Err(crate::ErrorMessage::FailedDecodeImage);
         }
         load_image = _load_image.unwrap();
     }
     else {
         let _load_image = image::open(path);
         if _load_image.is_err() {
-            return Err("Failed to decode image".to_string());
+            return Err(crate::ErrorMessage::FailedDecodeImage);
         }
         load_image = _load_image.unwrap();
     }
