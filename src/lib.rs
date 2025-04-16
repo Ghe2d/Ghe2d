@@ -55,40 +55,34 @@ impl Ghe2d {
         }
     }
 
-    pub async fn new_by_load_from_path(path: &str, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Self {
+    pub async fn new_by_load_from_path(path: &str, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<Self, String> {
         let image = load_image::load_image(path, width, height, is_circle).await;
         if image.is_err() {
-            return Ghe2d::new(
-                if width.is_some() { width.unwrap() } else { 0 },
-                if height.is_some() { height.unwrap() } else { 0 }
-            );
+            return Err(image.err().unwrap());
         }
         let image = image.unwrap();
 
-        Ghe2d {
+        Ok(Ghe2d {
             image: image.clone(),
             width: if width.is_some() { width.unwrap() } else { image.width() },
             height: if height.is_some() { height.unwrap() } else { image.height() },
             errors: Vec::new()
-        }
+        })
     }
 
-    pub fn new_by_load_from_buffer(buffer: Vec<u8>, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Self {
+    pub fn new_by_load_from_buffer(buffer: Vec<u8>, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<Self, String> {
         let image = buffer::load_buffer(buffer, width, height, is_circle);
         if image.is_err() {
-            return Ghe2d::new(
-                if width.is_some() { width.unwrap() } else { 0 },
-                if height.is_some() { height.unwrap() } else { 0 }
-            );
+            return Err(image.err().unwrap());
         }
         let image = image.unwrap();
 
-        Ghe2d {
+        Ok(Ghe2d {
             image: image.clone(),
             width: if width.is_some() { width.unwrap() } else { image.width() },
             height: if height.is_some() { height.unwrap() } else { image.height() },
             errors: Vec::new()
-        }
+        })
     }
 
     pub fn width(&self) -> u32 {
