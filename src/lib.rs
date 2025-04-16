@@ -46,11 +46,47 @@ pub struct Ghe2d {
 }
 
 impl Ghe2d {
-    pub fn new(width: u32, height: u32) -> Ghe2d {
+    pub fn new(width: u32, height: u32) -> Self {
         Ghe2d {
             image: image::RgbaImage::new(width, height),
             width,
             height,
+            errors: Vec::new()
+        }
+    }
+
+    pub async fn new_by_load_from_path(path: &str, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Self {
+        let image = load_image::load_image(path, width, height, is_circle).await;
+        if image.is_err() {
+            return Ghe2d::new(
+                if width.is_some() { width.unwrap() } else { 0 },
+                if height.is_some() { height.unwrap() } else { 0 }
+            );
+        }
+        let image = image.unwrap();
+
+        Ghe2d {
+            image: image.clone(),
+            width: if width.is_some() { width.unwrap() } else { image.width() },
+            height: if height.is_some() { height.unwrap() } else { image.height() },
+            errors: Vec::new()
+        }
+    }
+
+    pub fn new_by_load_from_buffer(buffer: Vec<u8>, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Self {
+        let image = buffer::load_buffer(buffer, width, height, is_circle);
+        if image.is_err() {
+            return Ghe2d::new(
+                if width.is_some() { width.unwrap() } else { 0 },
+                if height.is_some() { height.unwrap() } else { 0 }
+            );
+        }
+        let image = image.unwrap();
+
+        Ghe2d {
+            image: image.clone(),
+            width: if width.is_some() { width.unwrap() } else { image.width() },
+            height: if height.is_some() { height.unwrap() } else { image.height() },
             errors: Vec::new()
         }
     }
@@ -89,12 +125,12 @@ impl Ghe2d {
         buffer::image_to_webp_buffer(&self.image, quality)
     }
 
-    pub fn draw_text(&mut self, load_font: font::LoadFont, text: String, x: u32, y: u32, size: u32, color: utility::Rgba) -> &Ghe2d {
+    pub fn draw_text(&mut self, load_font: font::LoadFont, text: String, x: u32, y: u32, size: u32, color: utility::Rgba) -> &Self {
         text::draw_text(&mut self.image, load_font, text, x as f32, y as f32, size as f32, color);
         self
     }
 
-    pub async fn load_normal_image(&mut self, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
+    pub async fn load_normal_image(&mut self, path: &str, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> &Self {
         let image = load_image::add_image_normal_mut(&mut self.image, path, x, y, width, height, is_circle).await;
         if image.is_err() {
             self.errors.push(Error {message: image.err().unwrap(), kind: ErrorKind::LoadNormalImage});
@@ -102,7 +138,7 @@ impl Ghe2d {
         self
     }
 
-    pub async fn load_blend_image(&mut self, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
+    pub async fn load_blend_image(&mut self, path: &str, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> &Self {
         let image = load_image::add_image_blend_mut(&mut self.image, path, x, y, width, height, is_circle).await;
         if image.is_err() {
             self.errors.push(Error {message: image.err().unwrap(), kind: ErrorKind::LoadBlendImage});
@@ -110,7 +146,7 @@ impl Ghe2d {
         self
     }
 
-    pub async fn load_overlay_image(&mut self, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
+    pub async fn load_overlay_image(&mut self, path: &str, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> &Self {
         let image = load_image::add_image_overlay_mut(&mut self.image, path, x, y, width, height, is_circle).await;
         if image.is_err() {
             self.errors.push(Error {message: image.err().unwrap(), kind: ErrorKind::LoadOverlayImage});
@@ -128,7 +164,7 @@ impl Ghe2d {
         self
     }
 
-    pub fn from_buffer_to_overlay(&mut self, buffer: Vec<u8>, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
+    pub fn from_buffer_to_overlay(&mut self, buffer: Vec<u8>, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> &Self {
         let image = buffer::load_buffer_image_overlay(&mut self.image, buffer, x, y, width, height, is_circle);
         if image.is_err() {
             self.errors.push(Error {message: image.err().unwrap(), kind: ErrorKind::FromBufferToOverlay});
@@ -136,7 +172,7 @@ impl Ghe2d {
         self
     }
 
-    pub fn from_buffer_to_normal(&mut self, buffer: Vec<u8>, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> &Ghe2d {
+    pub fn from_buffer_to_normal(&mut self, buffer: Vec<u8>, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> &Self {
         let image = buffer::load_buffer_image_normal(&mut self.image, buffer, x, y, width, height, is_circle);
         if image.is_err() {
             self.errors.push(Error {message: image.err().unwrap(), kind: ErrorKind::FromBufferToNormal});

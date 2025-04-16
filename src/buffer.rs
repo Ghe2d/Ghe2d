@@ -28,7 +28,7 @@ pub fn image_to_png_buffer(img: &image::RgbaImage, compression: CompressionType,
     png
 }
 
-pub fn load_buffer_image_overlay(img: &mut image::RgbaImage, buffer: Vec<u8>, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> Result<(), String>  {
+pub fn load_buffer_image_overlay(img: &mut image::RgbaImage, buffer: Vec<u8>, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<(), String>  {
     let load_image = load_buffer(buffer, width, height, is_circle);
     if load_image.is_err() {
         return Err(load_image.err().unwrap());
@@ -37,7 +37,7 @@ pub fn load_buffer_image_overlay(img: &mut image::RgbaImage, buffer: Vec<u8>, x:
     Ok(())
 }
 
-pub fn load_buffer_image_normal(img: &mut image::RgbaImage, buffer: Vec<u8>, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> Result<(), String> {
+pub fn load_buffer_image_normal(img: &mut image::RgbaImage, buffer: Vec<u8>, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<(), String> {
     let load_image = load_buffer(buffer, width, height, is_circle);
     if load_image.is_err() {
         return Err(load_image.err().unwrap());
@@ -46,7 +46,7 @@ pub fn load_buffer_image_normal(img: &mut image::RgbaImage, buffer: Vec<u8>, x: 
     Ok(())
 }
 
-pub fn load_buffer(buffer: Vec<u8>, width: u32, height: u32, is_circle: bool) -> Result<image::RgbaImage, String> {
+pub fn load_buffer(buffer: Vec<u8>, w: Option<u32>, h: Option<u32>, is_circle: bool) -> Result<image::RgbaImage, String> {
     if buffer.is_empty() {
         return Err("Buffer is empty".to_string());
     }
@@ -57,6 +57,16 @@ pub fn load_buffer(buffer: Vec<u8>, width: u32, height: u32, is_circle: bool) ->
     let load_image = load_image.unwrap();
 
     let r_img: image::RgbaImage;
+
+    let width = match w {
+        Some(w) => w,
+        None => load_image.width(),
+    };
+
+    let height = match h {
+        Some(h) => h,
+        None => load_image.height(),
+    };
 
     if width == load_image.width() && height == load_image.height() {
         r_img = load_image.to_rgba8();

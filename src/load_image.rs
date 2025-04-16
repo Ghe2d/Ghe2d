@@ -1,6 +1,6 @@
 use num_integer::Roots;
 
-pub async fn add_image_blend_mut(img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> Result<(), String>  {
+pub async fn add_image_blend_mut(img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<(), String>  {
 
     let load_image = load_image(path, width, height, is_circle).await;
     if load_image.is_err() {
@@ -25,7 +25,7 @@ pub async fn add_image_blend_mut(img: &mut image::RgbaImage, path: &str, x: u32,
     Ok(())
 }
 
-pub async fn add_image_normal_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> Result<(), String>  {
+pub async fn add_image_normal_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<(), String>  {
 
     let load_image = load_image(path, width, height, is_circle).await;
     if load_image.is_err() {
@@ -36,7 +36,7 @@ pub async fn add_image_normal_mut( img: &mut image::RgbaImage, path: &str, x: u3
     Ok(())
 }
 
-pub async fn add_image_overlay_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: u32, height: u32, is_circle: bool) -> Result<(), String> {
+pub async fn add_image_overlay_mut( img: &mut image::RgbaImage, path: &str, x: u32, y: u32, width: Option<u32>, height: Option<u32>, is_circle: bool) -> Result<(), String> {
     let load_image = load_image(path, width, height, is_circle).await;
     if load_image.is_err() {
         return Err(load_image.err().unwrap());
@@ -46,7 +46,7 @@ pub async fn add_image_overlay_mut( img: &mut image::RgbaImage, path: &str, x: u
     Ok(())
 }
 
-pub async fn load_image(path: &str, width: u32, height: u32, is_circle: bool) -> Result<image::RgbaImage, String> {
+pub async fn load_image(path: &str, w: Option<u32>, h: Option<u32>, is_circle: bool) -> Result<image::RgbaImage, String> {
     
     let load_image: image::DynamicImage;
     
@@ -74,6 +74,14 @@ pub async fn load_image(path: &str, width: u32, height: u32, is_circle: bool) ->
     }
 
     let r_img: image::RgbaImage;
+    let width = match w {
+        Some(w) => w,
+        None => load_image.width(),
+    };
+    let height = match h {
+        Some(h) => h,
+        None => load_image.height(),
+    };
 
     if width == load_image.width() && height == load_image.height() {
         r_img = load_image.to_rgba8();
