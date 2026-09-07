@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Rgba {
     pub r: u8,
     pub g: u8,

@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use ghe2d::font::LoadFont;
 use ghe2d::image::codecs::png::{CompressionType, FilterType};
 use ghe2d::utility::Rgba;
-use ghe2d::{Ghe2d, Ghe2dError};
+use ghe2d::{Ghe2d, Ghe2dError, TextAlign, TextOptions};
 
 fn asset(p: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(p)
@@ -59,25 +59,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     // framed border
     let frame = Rgba::new(220, 180, 90, 255);
-    g.draw_rect(40, 40, W - 80, 6, frame.clone());
-    g.draw_rect(40, H - 46, W - 80, 6, frame.clone());
-    g.draw_rect(40, 40, 6, H - 80, frame.clone());
-    g.draw_rect(W - 46, 40, 6, H - 80, frame.clone());
+    g.draw_rect(40, 40, W - 80, 6, frame);
+    g.draw_rect(40, H - 46, W - 80, 6, frame);
+    g.draw_rect(40, 40, 6, H - 80, frame);
+    g.draw_rect(W - 46, 40, 6, H - 80, frame);
 
     // circle-cropped logo
     g.from_buffer_to_overlay(make_logo()?, (W - 360) / 2, 150, Some(360), Some(360), true)?;
 
-    // text
-    g.draw_text(title_font, "منصة الصور".to_string(), 120, 620, 110, Rgba::new(245, 245, 250, 255));
-    g.draw_text(subtitle_font.clone(), "توليد صور احترافية — الإصدار v0.2.0".to_string(), 90, 780, 40, Rgba::new(210, 210, 230, 255));
-    g.draw_text(footer_font, "generated with ghe2d • 2026".to_string(), 90, H - 120, 30, Rgba::new(180, 190, 210, 255));
+    // text — everything centered inside the framed content box [46, W-46]
+    let content_x = 46.0;
+    let content_w = (W - 92) as f32;
     g.draw_text(
-        subtitle_font,
-        "سطر يتجاوز الحافة اليمنى عمداً للتأكد من القص السليم بدون أي انهيار".to_string(),
-        760,
-        1000,
-        54,
-        Rgba::new(255, 130, 130, 220),
+        TextOptions::new(title_font, "منصة الصور")
+            .at(content_x, 600.0).size(110.0).color(Rgba::new(245, 245, 250, 255))
+            .width(content_w).align(TextAlign::Center),
+    );
+    g.draw_text(
+        TextOptions::new(subtitle_font.clone(), "توليد صور احترافية — الإصدار v0.2.0")
+            .at(content_x, 780.0).size(40.0).color(Rgba::new(210, 210, 230, 255))
+            .width(content_w).align(TextAlign::Center),
+    );
+    g.draw_text(
+        TextOptions::new(footer_font, "generated with ghe2d • 2026")
+            .at(content_x, (H - 120) as f32).size(30.0).color(Rgba::new(180, 190, 210, 255))
+            .width(content_w).align(TextAlign::Center),
+    );
+    // long tagline: wrapped inside the box instead of bleeding off the edge
+    g.draw_text(
+        TextOptions::new(subtitle_font, "سطر طويل يُلَفّ تلقائياً داخل حدود البوستر بدلاً من أن يتجاوز الحافة اليمنى")
+            .at(content_x, 940.0).size(52.0).color(Rgba::new(255, 130, 130, 230))
+            .width(content_w).wrap(true).align(TextAlign::Center),
     );
 
     g.save_with_png(&p("05_poster.png"), CompressionType::Default, FilterType::Adaptive)?;

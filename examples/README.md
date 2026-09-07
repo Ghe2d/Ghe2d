@@ -5,7 +5,7 @@ writes generated PNG/WebP into `target/example-output/` (created on run).
 
 ```bash
 cargo run --example 01_shapes_and_gradients   # new / draw_rect / draw_circle / encoders / clipping
-cargo run --example 02_text_multilang         # LoadFont::{new,from_bytes} / draw_text (LTR, RTL, mixed, multiline, overflow, empty, emoji)
+cargo run --example 02_text_multilang         # LoadFont / TextOptions builder: LTR, RTL, mixed, multiline, align, wrap, shrink-to-fit, LineLayout
 cargo run --example 03_buffer_compositing     # to_png_buffer -> new_by_load_from_buffer / from_buffer_to_{normal,overlay}
 cargo run --example 04_async_load_from_path   # new_by_load_from_path / load_{normal,blend,overlay}_image  (needs the tokio dev-dependency)
 cargo run --example 05_poster_pipeline        # full composition + multi-font text + WebP quality sweep

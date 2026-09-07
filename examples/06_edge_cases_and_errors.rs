@@ -9,7 +9,7 @@ use std::path::Path;
 
 use ghe2d::image::codecs::png::{CompressionType, FilterType};
 use ghe2d::utility::Rgba;
-use ghe2d::{ErrorMessage, Ghe2d, Ghe2dError};
+use ghe2d::{ErrorMessage, Ghe2d, Ghe2dError, LineLayout, TextAlign, TextOptions};
 
 fn check(label: &str, ok: bool) {
     println!("{} {label}", if ok { "OK  " } else { "FAIL" });
@@ -48,11 +48,11 @@ fn main() {
     {
         let mut g = Ghe2d::new(8, 8);
         let c = Rgba::new(255, 255, 255, 255);
-        g.draw_rect(100, 100, 9999, 9999, c.clone());
-        g.draw_rect(4, 4, 9999, 9999, c.clone());
-        g.draw_circle(0, 0, 5000, c.clone());
-        g.draw_circle(4, 4, 0, c.clone());
-        g.draw_circle(9999, 9999, 3, c.clone());
+        g.draw_rect(100, 100, 9999, 9999, c);
+        g.draw_rect(4, 4, 9999, 9999, c);
+        g.draw_circle(0, 0, 5000, c);
+        g.draw_circle(4, 4, 0, c);
+        g.draw_circle(9999, 9999, 3, c);
         check(
             "tiny-canvas shape clipping -> to_png_buffer Ok",
             g.to_png_buffer(CompressionType::Fast, FilterType::NoFilter).is_ok(),
@@ -68,11 +68,20 @@ fn main() {
         .expect("bundled font present");
         let font = ghe2d::font::LoadFont::from_bytes(font_bytes).expect("valid font");
         let w = Rgba::new(255, 255, 255, 255);
-        g.draw_text(font.clone(), String::new(), 0, 0, 12, w.clone()); // empty
-        g.draw_text(font.clone(), "🙂 اختبار".to_string(), 0, 0, 12, w.clone()); // emoji + RTL
-        g.draw_text(font.clone(), "zero".to_string(), 0, 0, 0, w.clone()); // size 0
-        g.draw_text(font.clone(), "x".repeat(4000), 0, 0, 8, w.clone()); // very long LTR
-        g.draw_text(font.clone(), "نص طويل ".repeat(500), 0, 0, 8, w.clone()); // very long RTL
+        let text = |s: String| TextOptions::new(font.clone(), s).color(w);
+        g.draw_text(text(String::new()).size(12.0)); // empty
+        g.draw_text(text("🙂 اختبار".into()).size(12.0)); // emoji + RTL
+        g.draw_text(text("zero".into()).size(0.0)); // size 0
+        g.draw_text(text("x".repeat(4000)).size(8.0)); // very long LTR
+        g.draw_text(text("نص طويل ".repeat(500)).size(8.0)); // very long RTL
+        // box-layout edge cases
+        g.draw_text(text("absurd width".into()).size(40.0).width(1.0));
+        g.draw_text(text("absurd height".into()).size(40.0).height(1.0));
+        g.draw_text(text("supercalifragilisticexpialidocious".into()).size(40.0).width(15.0).wrap(true));
+        g.draw_text(text("no height".into()).size(20.0).line_layout(LineLayout::SpaceBetween));
+        g.draw_text(text("no height".into()).size(20.0).line_layout(LineLayout::Middle(6.0)));
+        g.draw_text(text("a\nb\nc".into()).size(10.0).height(4.0).line_layout(LineLayout::SpaceEvenly));
+        g.draw_text(text("align".into()).size(12.0).width(60.0).align(TextAlign::Center));
         check("tiny-canvas text edge cases -> no panic", true);
     }
 

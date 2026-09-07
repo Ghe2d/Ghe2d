@@ -47,6 +47,25 @@ public API consistently fallible.
 - `.notdef` glyphs are skipped (nothing drawn) rather than rendered as tofu.
 - `fix_arabic_text` / `is_arabic` are removed.
 
+### Text layout — `TextOptions` builder
+
+- **`Ghe2d::draw_text` now takes a single [`TextOptions`] builder** instead of seven
+  positional args (`font`, `text`, `x`, `y`, `size`, `color` become `.new(font, text)` +
+  `.at(x, y).size(..).color(..)`). Coordinates and size are `f32`. **BREAKING.**
+- `.width(w)` constrains the text horizontally:
+  - `.wrap(false)` (default) shrinks the effective size until the widest line fits;
+  - `.wrap(true)` greedily word-wraps (an over-long word gets its own line and overflows —
+    glyphs are never split).
+- `.align(TextAlign::{Left,Right,Center})` positions each line inside the width box; without
+  an explicit align it follows the text's base direction (RTL → right, LTR → left). Needs
+  `.width`.
+- `.height(h)` enables the vertical distribution modes and shrinks the size if the line
+  block would be taller than `h`.
+- `.line_layout(LineLayout::…)` — `Gap(px)` (extra px between lines, default `Gap(0.0)` ==
+  previous behavior), `Top(px)` / `Middle(px)` / `Bottom(px)` (need `height`), and
+  `SpaceBetween` / `SpaceEvenly` (need `height`, derive their own spacing).
+- `utility::Rgba` now derives `Copy`.
+
 ### Changed
 
 - New crate-wide error type **`Ghe2dError`** (`Debug + Display + std::error::Error`, **not

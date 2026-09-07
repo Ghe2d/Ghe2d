@@ -22,6 +22,8 @@ pub use png;
 pub use reqwest;
 pub use num_integer;
 
+pub use text::{LineLayout, TextAlign, TextOptions};
+
 /// Load/decode failures produced by the internal image helpers.
 #[derive(Clone, Debug)]
 pub enum ErrorMessage {
@@ -177,24 +179,8 @@ impl Ghe2d {
         buffer::image_to_webp_buffer(&self.image, quality)
     }
 
-    pub fn draw_text(
-        &mut self,
-        load_font: font::LoadFont,
-        text: String,
-        x: u32,
-        y: u32,
-        size: u32,
-        color: utility::Rgba,
-    ) -> &Self {
-        text::draw_text(
-            &mut self.image,
-            load_font,
-            text,
-            x as f32,
-            y as f32,
-            size as f32,
-            color,
-        );
+    pub fn draw_text(&mut self, opts: text::TextOptions) -> &Self {
+        text::draw_text(&mut self.image, &opts);
         self
     }
 
