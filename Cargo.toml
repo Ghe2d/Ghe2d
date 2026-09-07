@@ -7,7 +7,7 @@ description = "A tool easy to make shapes"
 readme = "README.md"
 license = "ISC"
 keywords = ["canvas", "shapes", "2d"]
-authors = ["Hlever hlever.dev@gmail.com"]
+authors = ["clove7 hlever.dev@gmail.com"]
 include = ["**/*.rs", "Cargo.toml", "README.md", "CHANGELOG.md", "LICENSE.md"]
 
 [dependencies]
