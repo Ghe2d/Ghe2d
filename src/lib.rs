@@ -1,16 +1,10 @@
 pub mod text;
-pub mod load_image;
+pub mod image_io;
+pub mod export;
 pub mod utility;
 pub mod font;
-pub mod buffer;
 pub mod rect;
 pub mod circle;
-
-use std::fs::File;
-use std::io::copy;
-use std::io::Cursor;
-
-use image::codecs::png::{CompressionType, FilterType};
 
 pub use rusttype;
 pub use rustybuzz;
@@ -20,9 +14,11 @@ pub use image;
 pub use libwebp_sys;
 pub use png;
 pub use reqwest;
-pub use num_integer;
 
 pub use text::{LineLayout, TextAlign, TextOptions};
+pub use image_io::{ComposeMode, ImageOptions};
+pub use export::{ExportFormat, ExportOptions};
+pub use image::ImageFormat;
 
 /// Load/decode failures produced by the internal image helpers.
 #[derive(Clone, Debug)]
@@ -45,11 +41,11 @@ pub enum Ghe2dError {
     ImageTooLarge,
     /// The PNG encoder rejected the image (e.g. a zero-sized canvas).
     PngEncode,
+    /// The JPEG encoder rejected the image (e.g. a zero-sized canvas).
+    JpegEncode,
     /// A font file was unreadable or not a valid font.
     FontLoad,
-    /// Text could not be shaped into valid output (reserved; shaping is lossy).
-    InvalidText,
-    /// A filesystem / IO error, e.g. from `save_with_*`.
+    /// A filesystem / IO error, e.g. from [`Ghe2d::save`].
     Io(std::io::Error),
 }
 
@@ -62,8 +58,8 @@ impl std::fmt::Display for Ghe2dError {
                 write!(f, "image dimension exceeds WebP's 16383 px limit")
             }
             Ghe2dError::PngEncode => write!(f, "PNG encoding failed"),
+            Ghe2dError::JpegEncode => write!(f, "JPEG encoding failed"),
             Ghe2dError::FontLoad => write!(f, "failed to load font"),
-            Ghe2dError::InvalidText => write!(f, "text could not be encoded"),
             Ghe2dError::Io(e) => write!(f, "IO error: {e}"),
         }
     }
@@ -95,6 +91,9 @@ pub struct Ghe2d {
     pub image: image::RgbaImage,
     width: u32,
     height: u32,
+    /// Format the canvas was decoded from, if it came from [`Ghe2d::from_bytes`] /
+    /// [`Ghe2d::from_path`].
+    format: Option<image::ImageFormat>,
 }
 
 impl Ghe2d {
@@ -103,37 +102,38 @@ impl Ghe2d {
             image: image::RgbaImage::new(width, height),
             width,
             height,
+            format: None,
         }
     }
 
-    pub async fn new_by_load_from_path(
-        path: &str,
-        width: Option<u32>,
-        height: Option<u32>,
-        is_circle: bool,
-    ) -> Result<Self, Ghe2dError> {
-        let image = load_image::load_image(path, width, height, is_circle).await?;
-
+    /// Build a canvas from encoded image bytes. The format is auto-detected from the
+    /// bytes (PNG / JPEG / WebP / GIF / BMP / TIFF / …) and reported by
+    /// [`Ghe2d::source_format`]. `ImageOptions::{at, compose}` are ignored here.
+    pub fn from_bytes(bytes: Vec<u8>, opts: ImageOptions) -> Result<Self, Ghe2dError> {
+        let (image, format) = image_io::decode_and_transform(&bytes, &opts)?;
         Ok(Ghe2d {
-            width: width.unwrap_or_else(|| image.width()),
-            height: height.unwrap_or_else(|| image.height()),
+            width: image.width(),
+            height: image.height(),
             image,
+            format: Some(format),
         })
     }
 
-    pub fn new_by_load_from_buffer(
-        buffer: Vec<u8>,
-        width: Option<u32>,
-        height: Option<u32>,
-        is_circle: bool,
-    ) -> Result<Self, Ghe2dError> {
-        let image = buffer::load_buffer(buffer, width, height, is_circle)?;
+    /// Build a canvas from a local file path or an `http(s)://` URL. Format is
+    /// auto-detected from the fetched bytes.
+    pub async fn from_path(path: &str, opts: ImageOptions) -> Result<Self, Ghe2dError> {
+        let bytes = image_io::fetch_bytes(path).await?;
+        Self::from_bytes(bytes, opts)
+    }
 
-        Ok(Ghe2d {
-            width: width.unwrap_or_else(|| image.width()),
-            height: height.unwrap_or_else(|| image.height()),
-            image,
-        })
+    /// Format the canvas was decoded from, or `None` for [`Ghe2d::new`].
+    pub fn source_format(&self) -> Option<image::ImageFormat> {
+        self.format
+    }
+
+    /// `Some(format)` if `bytes` starts with a recognizable image signature.
+    pub fn detect_format(bytes: &[u8]) -> Option<image::ImageFormat> {
+        image_io::detect_format(bytes)
     }
 
     pub fn width(&self) -> u32 {
@@ -144,39 +144,16 @@ impl Ghe2d {
         self.height
     }
 
-    pub fn save(&self, path: &str) -> Result<(), image::ImageError> {
-        self.image.save(path)
+    /// Encode the canvas to bytes in the format described by `opts`.
+    pub fn encode(&self, opts: ExportOptions) -> Result<Vec<u8>, Ghe2dError> {
+        export::encode(&self.image, &opts)
     }
 
-    pub fn save_with_png(
-        &self,
-        path: &str,
-        compression: CompressionType,
-        filter: FilterType,
-    ) -> Result<(), Ghe2dError> {
-        let mut dest = File::create(path)?;
-        let mut content = Cursor::new(self.to_png_buffer(compression, filter)?);
-        copy(&mut content, &mut dest)?;
+    /// Encode the canvas and write it to `path`.
+    pub fn save(&self, path: &str, opts: ExportOptions) -> Result<(), Ghe2dError> {
+        let bytes = self.encode(opts)?;
+        std::fs::write(path, bytes)?;
         Ok(())
-    }
-
-    pub fn save_with_webp(&self, path: &str, quality: f32) -> Result<(), Ghe2dError> {
-        let mut dest = File::create(path)?;
-        let mut content = Cursor::new(self.to_webp_buffer(quality)?);
-        copy(&mut content, &mut dest)?;
-        Ok(())
-    }
-
-    pub fn to_png_buffer(
-        &self,
-        compression: CompressionType,
-        filter: FilterType,
-    ) -> Result<Vec<u8>, Ghe2dError> {
-        buffer::image_to_png_buffer(&self.image, compression, filter)
-    }
-
-    pub fn to_webp_buffer(&self, quality: f32) -> Result<Vec<u8>, Ghe2dError> {
-        buffer::image_to_webp_buffer(&self.image, quality)
     }
 
     pub fn draw_text(&mut self, opts: text::TextOptions) -> &Self {
@@ -184,46 +161,26 @@ impl Ghe2d {
         self
     }
 
-    pub async fn load_normal_image(
+    /// Decode `bytes` and composite the result onto this canvas per `opts`
+    /// (`at` = destination, `compose` = blend mode).
+    pub fn draw_image_bytes(
         &mut self,
-        path: &str,
-        x: u32,
-        y: u32,
-        width: Option<u32>,
-        height: Option<u32>,
-        is_circle: bool,
+        bytes: Vec<u8>,
+        opts: ImageOptions,
     ) -> Result<&mut Self, Ghe2dError> {
-        load_image::add_image_normal_mut(&mut self.image, path, x, y, width, height, is_circle)
-            .await?;
+        let (src, _format) = image_io::decode_and_transform(&bytes, &opts)?;
+        image_io::composite(&mut self.image, &src, opts.x, opts.y, opts.compose);
         Ok(self)
     }
 
-    pub async fn load_blend_image(
+    /// Fetch a local file / `http(s)://` URL and composite it onto this canvas per `opts`.
+    pub async fn draw_image_path(
         &mut self,
         path: &str,
-        x: u32,
-        y: u32,
-        width: Option<u32>,
-        height: Option<u32>,
-        is_circle: bool,
+        opts: ImageOptions,
     ) -> Result<&mut Self, Ghe2dError> {
-        load_image::add_image_blend_mut(&mut self.image, path, x, y, width, height, is_circle)
-            .await?;
-        Ok(self)
-    }
-
-    pub async fn load_overlay_image(
-        &mut self,
-        path: &str,
-        x: u32,
-        y: u32,
-        width: Option<u32>,
-        height: Option<u32>,
-        is_circle: bool,
-    ) -> Result<&mut Self, Ghe2dError> {
-        load_image::add_image_overlay_mut(&mut self.image, path, x, y, width, height, is_circle)
-            .await?;
-        Ok(self)
+        let bytes = image_io::fetch_bytes(path).await?;
+        self.draw_image_bytes(bytes, opts)
     }
 
     pub fn draw_rect(
@@ -241,31 +198,5 @@ impl Ghe2d {
     pub fn draw_circle(&mut self, x: u32, y: u32, raduis: u32, color: utility::Rgba) -> &Ghe2d {
         circle::draw_circle(&mut self.image, x, y, raduis, color);
         self
-    }
-
-    pub fn from_buffer_to_overlay(
-        &mut self,
-        buffer: Vec<u8>,
-        x: u32,
-        y: u32,
-        width: Option<u32>,
-        height: Option<u32>,
-        is_circle: bool,
-    ) -> Result<&mut Self, Ghe2dError> {
-        buffer::load_buffer_image_overlay(&mut self.image, buffer, x, y, width, height, is_circle)?;
-        Ok(self)
-    }
-
-    pub fn from_buffer_to_normal(
-        &mut self,
-        buffer: Vec<u8>,
-        x: u32,
-        y: u32,
-        width: Option<u32>,
-        height: Option<u32>,
-        is_circle: bool,
-    ) -> Result<&mut Self, Ghe2dError> {
-        buffer::load_buffer_image_normal(&mut self.image, buffer, x, y, width, height, is_circle)?;
-        Ok(self)
     }
 }

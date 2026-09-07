@@ -1,9 +1,9 @@
 //! 05 — end-to-end poster: the "real" pipeline.
 //!
 //! Exercises: full composition (gradient + decoration + framed border), an in-memory logo
-//! sprite composited with `from_buffer_to_overlay` + `is_circle`, multi-font `draw_text`,
-//! `save_with_png`, `save_with_webp`, and a `to_webp_buffer` quality sweep printing the
-//! size/quality trade-off.
+//! sprite composited via `draw_image_bytes` (`ImageOptions::circle` + `ComposeMode::Overlay`),
+//! multi-font `draw_text`, `save` / `encode` with `ExportOptions` (PNG / JPEG / WebP), and
+//! a WebP quality sweep printing the size/quality trade-off.
 //!
 //! Run: `cargo run --example 05_poster_pipeline`
 
@@ -11,9 +11,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use ghe2d::font::LoadFont;
-use ghe2d::image::codecs::png::{CompressionType, FilterType};
 use ghe2d::utility::Rgba;
-use ghe2d::{Ghe2d, Ghe2dError, TextAlign, TextOptions};
+use ghe2d::{ExportOptions, Ghe2d, Ghe2dError, ImageOptions, TextAlign, TextOptions};
 
 fn asset(p: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(p)
@@ -30,7 +29,7 @@ fn make_logo() -> Result<Vec<u8>, Ghe2dError> {
     l.draw_circle(200, 200, 190, Rgba::new(24, 118, 210, 255));
     l.draw_circle(200, 200, 120, Rgba::new(255, 255, 255, 255));
     l.draw_circle(200, 200, 60, Rgba::new(255, 176, 32, 255));
-    l.to_png_buffer(CompressionType::Default, FilterType::Adaptive)
+    l.encode(ExportOptions::png())
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -65,7 +64,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     g.draw_rect(W - 46, 40, 6, H - 80, frame);
 
     // circle-cropped logo
-    g.from_buffer_to_overlay(make_logo()?, (W - 360) / 2, 150, Some(360), Some(360), true)?;
+    g.draw_image_bytes(
+        make_logo()?,
+        ImageOptions::new().at((W - 360) / 2, 150).size(360, 360).circle(true).compose(ghe2d::ComposeMode::Overlay),
+    )?;
 
     // text — everything centered inside the framed content box [46, W-46]
     let content_x = 46.0;
@@ -92,12 +94,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .width(content_w).wrap(true).align(TextAlign::Center),
     );
 
-    g.save_with_png(&p("05_poster.png"), CompressionType::Default, FilterType::Adaptive)?;
-    g.save_with_webp(&p("05_poster.webp"), 80.0)?;
+    g.save(&p("05_poster.png"), ExportOptions::png())?;
+    g.save(&p("05_poster.webp"), ExportOptions::webp(80.0))?;
+    g.save(&p("05_poster.jpg"), ExportOptions::jpeg(85))?;
 
     println!("webp quality sweep:");
     for q in [10.0f32, 40.0, 70.0, 100.0] {
-        let bytes = g.to_webp_buffer(q)?;
+        let bytes = g.encode(ExportOptions::webp(q))?;
         let name = format!("05_poster_q{}.webp", q as u32);
         fs::write(o.join(&name), &bytes)?;
         println!("  q={:>3} -> {:>8} bytes  ({name})", q as u32, bytes.len());

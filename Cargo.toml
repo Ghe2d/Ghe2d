@@ -23,7 +23,6 @@ rustybuzz = "0.20"
 unicode-bidi = "0.3"
 regex = "1.11.1"
 reqwest = "0.12.15"
-num-integer = "0.1.46"
 png = "0.17.16"
 libwebp-sys = "0.12.1"
 

@@ -1,15 +1,18 @@
 //! 06 — verification harness: every hardened path returns an error, never a panic/abort.
 //!
 //! Exercises every `Ghe2dError` variant, the shape/text clipping guards, the WebP
-//! dimension guard (which previously aborted the process), and the decode guards.
+//! dimension guard (which previously aborted the process), the decode guards, and the
+//! new `ExportOptions` / `ImageOptions` / `detect_format` surface.
 //!
 //! Run: `cargo run --example 06_edge_cases_and_errors`
 
 use std::path::Path;
 
-use ghe2d::image::codecs::png::{CompressionType, FilterType};
 use ghe2d::utility::Rgba;
-use ghe2d::{ErrorMessage, Ghe2d, Ghe2dError, LineLayout, TextAlign, TextOptions};
+use ghe2d::{
+    ErrorMessage, ExportOptions, Ghe2d, Ghe2dError, ImageFormat, ImageOptions, LineLayout,
+    TextAlign, TextOptions,
+};
 
 fn check(label: &str, ok: bool) {
     println!("{} {label}", if ok { "OK  " } else { "FAIL" });
@@ -19,29 +22,42 @@ fn check(label: &str, ok: bool) {
 fn tiny_valid_png() -> Vec<u8> {
     let mut g = Ghe2d::new(24, 24);
     g.draw_rect(0, 0, 24, 24, Rgba::new(10, 20, 30, 255));
-    g.to_png_buffer(CompressionType::Fast, FilterType::NoFilter).unwrap()
+    g.encode(ExportOptions::png()).unwrap()
 }
 
 fn main() {
     // --- encoder guards -------------------------------------------------------
     check(
-        "new(0,0).to_webp_buffer -> WebpEncode",
-        matches!(Ghe2d::new(0, 0).to_webp_buffer(70.0), Err(Ghe2dError::WebpEncode)),
+        "new(0,0).encode(webp) -> WebpEncode",
+        matches!(Ghe2d::new(0, 0).encode(ExportOptions::webp(70.0)), Err(Ghe2dError::WebpEncode)),
     );
     check(
-        "new(0,0).to_png_buffer -> PngEncode",
+        "new(0,0).encode(png) -> PngEncode",
+        matches!(Ghe2d::new(0, 0).encode(ExportOptions::png()), Err(Ghe2dError::PngEncode)),
+    );
+    check(
+        "new(0,0).encode(jpeg) -> JpegEncode",
+        matches!(Ghe2d::new(0, 0).encode(ExportOptions::jpeg(80)), Err(Ghe2dError::JpegEncode)),
+    );
+    check(
+        "new(20000,4).encode(webp) -> ImageTooLarge (previously aborted the process)",
+        matches!(Ghe2d::new(20_000, 4).encode(ExportOptions::webp(70.0)), Err(Ghe2dError::ImageTooLarge)),
+    );
+    check(
+        "new(4,20000).encode(webp) -> ImageTooLarge",
+        matches!(Ghe2d::new(4, 20_000).encode(ExportOptions::webp(70.0)), Err(Ghe2dError::ImageTooLarge)),
+    );
+
+    // --- format detection ---------------------------------------------------
+    let png = tiny_valid_png();
+    check("detect_format(png) -> Png", matches!(Ghe2d::detect_format(&png), Some(ImageFormat::Png)));
+    check("detect_format(garbage) -> None", Ghe2d::detect_format(b"nope").is_none());
+    check(
+        "from_bytes(png).source_format() -> Png",
         matches!(
-            Ghe2d::new(0, 0).to_png_buffer(CompressionType::Fast, FilterType::NoFilter),
-            Err(Ghe2dError::PngEncode)
+            Ghe2d::from_bytes(png.clone(), ImageOptions::new()).map(|g| g.source_format()),
+            Ok(Some(ImageFormat::Png))
         ),
-    );
-    check(
-        "new(20000,4).to_webp_buffer -> ImageTooLarge (previously aborted the process)",
-        matches!(Ghe2d::new(20_000, 4).to_webp_buffer(70.0), Err(Ghe2dError::ImageTooLarge)),
-    );
-    check(
-        "new(4,20000).to_webp_buffer -> ImageTooLarge",
-        matches!(Ghe2d::new(4, 20_000).to_webp_buffer(70.0), Err(Ghe2dError::ImageTooLarge)),
     );
 
     // --- shape clipping on a tiny canvas (must not panic) --------------------
@@ -53,10 +69,7 @@ fn main() {
         g.draw_circle(0, 0, 5000, c);
         g.draw_circle(4, 4, 0, c);
         g.draw_circle(9999, 9999, 3, c);
-        check(
-            "tiny-canvas shape clipping -> to_png_buffer Ok",
-            g.to_png_buffer(CompressionType::Fast, FilterType::NoFilter).is_ok(),
-        );
+        check("tiny-canvas shape clipping -> encode(png) Ok", g.encode(ExportOptions::png()).is_ok());
     }
 
     // --- text edge cases on a tiny canvas (must not panic) ------------------
@@ -69,12 +82,11 @@ fn main() {
         let font = ghe2d::font::LoadFont::from_bytes(font_bytes).expect("valid font");
         let w = Rgba::new(255, 255, 255, 255);
         let text = |s: String| TextOptions::new(font.clone(), s).color(w);
-        g.draw_text(text(String::new()).size(12.0)); // empty
-        g.draw_text(text("🙂 اختبار".into()).size(12.0)); // emoji + RTL
-        g.draw_text(text("zero".into()).size(0.0)); // size 0
-        g.draw_text(text("x".repeat(4000)).size(8.0)); // very long LTR
-        g.draw_text(text("نص طويل ".repeat(500)).size(8.0)); // very long RTL
-        // box-layout edge cases
+        g.draw_text(text(String::new()).size(12.0));
+        g.draw_text(text("🙂 اختبار".into()).size(12.0));
+        g.draw_text(text("zero".into()).size(0.0));
+        g.draw_text(text("x".repeat(4000)).size(8.0));
+        g.draw_text(text("نص طويل ".repeat(500)).size(8.0));
         g.draw_text(text("absurd width".into()).size(40.0).width(1.0));
         g.draw_text(text("absurd height".into()).size(40.0).height(1.0));
         g.draw_text(text("supercalifragilisticexpialidocious".into()).size(40.0).width(15.0).wrap(true));
@@ -88,47 +100,37 @@ fn main() {
     // --- font loading ------------------------------------------------------
     check(
         "LoadFont::new(missing) -> Io",
-        matches!(
-            ghe2d::font::LoadFont::new("does/not/exist-xyz.ttf".to_string()),
-            Err(Ghe2dError::Io(_))
-        ),
+        matches!(ghe2d::font::LoadFont::new("does/not/exist-xyz.ttf".to_string()), Err(Ghe2dError::Io(_))),
     );
     check(
         "LoadFont::from_bytes(garbage) -> FontLoad",
-        matches!(
-            ghe2d::font::LoadFont::from_bytes(vec![1, 2, 3, 4]),
-            Err(Ghe2dError::FontLoad)
-        ),
+        matches!(ghe2d::font::LoadFont::from_bytes(vec![1, 2, 3, 4]), Err(Ghe2dError::FontLoad)),
     );
 
     // --- buffer decode guards --------------------------------------------
     check(
-        "new_by_load_from_buffer(empty) -> Image(BufferEmpty)",
+        "from_bytes(empty) -> Image(BufferEmpty)",
         matches!(
-            Ghe2d::new_by_load_from_buffer(Vec::new(), None, None, false),
+            Ghe2d::from_bytes(Vec::new(), ImageOptions::new()),
             Err(Ghe2dError::Image(ErrorMessage::BufferEmpty))
         ),
     );
     check(
-        "new_by_load_from_buffer(non-image) -> Image(FailedDecodeImage)",
+        "from_bytes(non-image) -> Image(FailedDecodeImage)",
         matches!(
-            Ghe2d::new_by_load_from_buffer(b"not an image at all".to_vec(), None, None, false),
+            Ghe2d::from_bytes(b"not an image at all".to_vec(), ImageOptions::new()),
             Err(Ghe2dError::Image(ErrorMessage::FailedDecodeImage))
         ),
     );
 
     // --- zero-size resize is handled downstream, not a panic -------------
     {
-        let png = tiny_valid_png();
-        let zero = Ghe2d::new_by_load_from_buffer(png.clone(), Some(0), Some(0), false)
+        let zero = Ghe2d::from_bytes(png.clone(), ImageOptions::new().size(0, 0))
             .expect("0-size resize still constructs a Ghe2d");
-        check(
-            "resize to 0x0 -> to_webp_buffer Err (not panic)",
-            zero.to_webp_buffer(70.0).is_err(),
-        );
+        check("resize to 0x0 -> encode(webp) Err (not panic)", zero.encode(ExportOptions::webp(70.0)).is_err());
         check(
             "resize to 64x64 circle -> Ok",
-            Ghe2d::new_by_load_from_buffer(png, Some(64), Some(64), true).is_ok(),
+            Ghe2d::from_bytes(png, ImageOptions::new().size(64, 64).circle(true)).is_ok(),
         );
     }
 

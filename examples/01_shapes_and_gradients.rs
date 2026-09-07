@@ -1,8 +1,8 @@
 //! 01 — procedural shapes, gradients, alpha blending, and clipping.
 //!
 //! Exercises: `Ghe2d::new`, `draw_rect`, `draw_circle` (incl. `radius == 0` and shapes
-//! pushed past every edge/corner), `utility::Rgba` with alpha, `width`/`height`, `save`,
-//! `save_with_png`, `save_with_webp`, `to_png_buffer`, `to_webp_buffer`.
+//! pushed past every edge/corner), `utility::Rgba` with alpha, `width`/`height`,
+//! `encode` / `save` with `ExportOptions` (PNG / WebP).
 //!
 //! Run: `cargo run --example 01_shapes_and_gradients`
 
@@ -11,7 +11,7 @@ use std::path::PathBuf;
 
 use ghe2d::image::codecs::png::{CompressionType, FilterType};
 use ghe2d::utility::Rgba;
-use ghe2d::Ghe2d;
+use ghe2d::{ExportOptions, Ghe2d};
 
 fn out_dir() -> PathBuf {
     let d = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/example-output");
@@ -64,12 +64,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let o = out_dir();
     let p = |name: &str| o.join(name).to_str().unwrap().to_owned();
 
-    g.save(&p("01_shapes.save.png"))?;
-    g.save_with_png(&p("01_shapes.best_paeth.png"), CompressionType::Best, FilterType::Paeth)?;
-    g.save_with_webp(&p("01_shapes.q90.webp"), 90.0)?;
+    g.save(&p("01_shapes.png"), ExportOptions::png())?;
+    g.save(
+        &p("01_shapes.best_paeth.png"),
+        ExportOptions::png().compression(CompressionType::Best).filter(FilterType::Paeth),
+    )?;
+    g.save(&p("01_shapes.q90.webp"), ExportOptions::webp(90.0))?;
 
-    fs::write(o.join("01_shapes.frombuffer.png"), g.to_png_buffer(CompressionType::Fast, FilterType::NoFilter)?)?;
-    fs::write(o.join("01_shapes.frombuffer.q75.webp"), g.to_webp_buffer(75.0)?)?;
+    fs::write(
+        o.join("01_shapes.frombuffer.png"),
+        g.encode(ExportOptions::png().compression(CompressionType::Fast).filter(FilterType::NoFilter))?,
+    )?;
+    fs::write(o.join("01_shapes.frombuffer.q75.webp"), g.encode(ExportOptions::webp(75.0))?)?;
 
     println!("wrote 5 files to {}", o.display());
     Ok(())

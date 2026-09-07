@@ -64,19 +64,50 @@ public API consistently fallible.
 - `.line_layout(LineLayout::…)` — `Gap(px)` (extra px between lines, default `Gap(0.0)` ==
   previous behavior), `Top(px)` / `Middle(px)` / `Bottom(px)` (need `height`), and
   `SpaceBetween` / `SpaceEvenly` (need `height`, derive their own spacing).
-- `utility::Rgba` now derives `Copy`.
+- `utility::Rgba` now derives `Copy` (and `Debug`, `PartialEq`, `Eq`).
+
+### Image I/O — option structs, format detection, JPEG
+
+**BREAKING.** The 12 positional-argument load/encode/save methods are replaced by 8
+methods driven by builders.
+
+- **Input** — `ImageOptions` builder + `ComposeMode { Normal (default), Overlay, Blend }`:
+  - `Ghe2d::from_bytes(bytes, ImageOptions)` (sync) and
+    `Ghe2d::from_path(path, ImageOptions).await` (async; local file **or** `http(s)://`)
+    replace `new_by_load_from_buffer` / `new_by_load_from_path`.
+  - `g.draw_image_bytes(bytes, ImageOptions)` (sync) and
+    `g.draw_image_path(path, ImageOptions).await` (async) replace
+    `from_buffer_to_normal` / `from_buffer_to_overlay` /
+    `load_normal_image` / `load_blend_image` / `load_overlay_image` — the `_normal` /
+    `_overlay` / `_blend` suffix is now `ImageOptions::compose(ComposeMode::…)`.
+  - `ImageOptions`: `.at(x, y)` `.size(w, h)` `.width(w)` `.height(h)` `.circle(bool)`
+    `.compose(mode)`. `at` / `compose` are ignored by the constructors.
+- **Format detection**: decoding auto-detects the container from the bytes (PNG / JPEG /
+  WebP / GIF / BMP / TIFF / …). `Ghe2d::detect_format(&[u8]) -> Option<ImageFormat>` and
+  `g.source_format() -> Option<ImageFormat>` (the format a canvas was loaded from; `None`
+  for `Ghe2d::new`). `image::ImageFormat` is re-exported as `ghe2d::ImageFormat`.
+- **Output** — `ExportOptions` + `ExportFormat`:
+  - `g.encode(ExportOptions) -> Result<Vec<u8>, Ghe2dError>` replaces `to_png_buffer` /
+    `to_webp_buffer`.
+  - `g.save(path, ExportOptions) -> Result<(), Ghe2dError>` replaces the old 1-arg `save`
+    and `save_with_png` / `save_with_webp`.
+  - `ExportOptions::png()` / `jpeg(quality)` / `webp(quality)`, plus `.compression(c)` /
+    `.filter(f)` (PNG) and `.background(Rgba)` (JPEG).
+- **JPEG** is now supported for both decode and encode. It has no alpha channel, so
+  `ExportFormat::Jpeg { quality, background }` flattens transparency over `background`
+  (opaque white by default). New `Ghe2dError::JpegEncode`.
+- `Ghe2dError::InvalidText` removed (was unused).
+- Dependency `num-integer` dropped (unused since the circle-mask rewrite); the
+  `pub use num_integer` re-export is gone. Modules `ghe2d::buffer` and `ghe2d::load_image`
+  are replaced by `ghe2d::image_io` and `ghe2d::export`.
 
 ### Changed
 
 - New crate-wide error type **`Ghe2dError`** (`Debug + Display + std::error::Error`, **not
   `Clone`** — it can carry `std::io::Error`). `ErrorMessage` is unchanged and is wrapped by
   `Ghe2dError::Image`.
-- Public API now returns `Result<_, Ghe2dError>`:
-  `Ghe2d::new_by_load_from_path`, `new_by_load_from_buffer`, `to_png_buffer`,
-  `to_webp_buffer`, `save_with_png`, `save_with_webp`; and
-  `load_normal_image` / `load_blend_image` / `load_overlay_image` /
-  `from_buffer_to_overlay` / `from_buffer_to_normal` now return
-  `Result<&mut Self, Ghe2dError>` instead of swallowing errors.
+- Every fallible public method returns `Result<_, Ghe2dError>` (the image-input methods
+  return `Result<&mut Self, _>` instead of swallowing errors into a hidden buffer).
 - `LoadFont::new` returns `Result<Self, Ghe2dError>`; added `LoadFont::from_bytes`.
 - Removed the unreachable `Ghe2d::errors` buffer and the `Error` / `ErrorKind` types.
 - Dependencies: removed `ar-reshaper`; added `rustybuzz` and `unicode-bidi`. Crate
@@ -89,11 +120,20 @@ public API consistently fallible.
 ```rust
 // before
 let g = Ghe2d::new_by_load_from_buffer(bytes, None, None, false).unwrap();
+g.from_buffer_to_overlay(logo, 10, 10, Some(64), Some(64), true)?;
 let webp = g.to_webp_buffer(70.0).map_err(|_| MyErr)?;
+g.save_with_png("out.png", CompressionType::Best, FilterType::Paeth)?;
 let font = LoadFont::new(path);
+g.draw_text(font, "hi".into(), 10, 20, 32, color);
 
 // after
-let g = Ghe2d::new_by_load_from_buffer(bytes, None, None, false)?; // Ghe2dError
-let webp = g.to_webp_buffer(70.0)?;                                // Ghe2dError
-let font = LoadFont::new(path)?;                                   // Ghe2dError
+use ghe2d::{ImageOptions, ComposeMode, ExportOptions, TextOptions};
+let g = Ghe2d::from_bytes(bytes, ImageOptions::new())?;
+g.draw_image_bytes(logo, ImageOptions::new().at(10, 10).size(64, 64).circle(true)
+                                            .compose(ComposeMode::Overlay))?;
+let webp = g.encode(ExportOptions::webp(70.0))?;
+g.save("out.png", ExportOptions::png().compression(CompressionType::Best)
+                                      .filter(FilterType::Paeth))?;
+let font = LoadFont::new(path)?;
+g.draw_text(TextOptions::new(font, "hi").at(10.0, 20.0).size(32.0).color(color));
 ```

@@ -11,9 +11,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use ghe2d::font::LoadFont;
-use ghe2d::image::codecs::png::{CompressionType, FilterType};
 use ghe2d::utility::Rgba;
-use ghe2d::{Ghe2d, LineLayout, TextAlign, TextOptions};
+use ghe2d::{ExportOptions, Ghe2d, LineLayout, TextAlign, TextOptions};
 
 fn asset(p: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(p)
@@ -112,8 +111,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     g.draw_text(TextOptions::new(rubik.clone(), "This very long line keeps going past the right edge and is simply clipped").at(760.0, 560.0).size(48.0).color(red));
 
     let o = out_dir();
-    g.save_with_png(o.join("02_text.png").to_str().unwrap(), CompressionType::Default, FilterType::Adaptive)?;
-    g.save_with_webp(o.join("02_text.webp").to_str().unwrap(), 92.0)?;
+    g.save(o.join("02_text.png").to_str().unwrap(), ExportOptions::png())?;
+    g.save(o.join("02_text.webp").to_str().unwrap(), ExportOptions::webp(92.0))?;
     println!("wrote 02_text.{{png,webp}} to {}", o.display());
     Ok(())
 }

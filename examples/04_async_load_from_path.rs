@@ -1,24 +1,22 @@
-//! 04 — async loaders.
+//! 04 — async image loading.
 //!
-//! Exercises: `Ghe2d::new_by_load_from_path` (plain / circle+resize) and
-//! `load_normal_image` / `load_blend_image` / `load_overlay_image` chained on `&mut self`,
-//! with `is_circle` and off-canvas (clipped) placements.
+//! Exercises: `Ghe2d::from_path` (plain / circle+resize) + `source_format`,
+//! `Ghe2d::detect_format`, and `draw_image_path` chained on `&mut self` with every
+//! `ComposeMode`, `circle`, and an off-canvas (clipped) placement.
 //!
-//! `load_image` also accepts `http(s)://` URLs; this example uses local files it generates
-//! itself so it stays deterministic and offline.
+//! `from_path` also accepts `http(s)://` URLs; this example generates local files so it
+//! stays deterministic and offline.
 //!
 //! Run: `cargo run --example 04_async_load_from_path`
 
-use std::fs;
 use std::path::PathBuf;
 
-use ghe2d::image::codecs::png::{CompressionType, FilterType};
 use ghe2d::utility::Rgba;
-use ghe2d::Ghe2d;
+use ghe2d::{ComposeMode, ExportOptions, Ghe2d, ImageOptions};
 
 fn out_dir() -> PathBuf {
     let d = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/example-output");
-    fs::create_dir_all(&d).unwrap();
+    std::fs::create_dir_all(&d).unwrap();
     d
 }
 
@@ -34,31 +32,47 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let o = out_dir();
     let p = |name: &str| o.join(name).to_str().unwrap().to_owned();
 
-    let src_a = p("04_src_a.png");
-    let src_b = p("04_src_b.png");
-    make_source(360, 360, [200, 60, 60, 255]).save(&src_a)?;
-    make_source(360, 360, [60, 90, 200, 255]).save(&src_b)?;
+    // one PNG source, one JPEG source — decoding auto-detects the format
+    let src_png = p("04_src_a.png");
+    let src_jpg = p("04_src_b.jpg");
+    make_source(360, 360, [200, 60, 60, 255]).save(&src_png, ExportOptions::png())?;
+    make_source(360, 360, [60, 90, 200, 255]).save(&src_jpg, ExportOptions::jpeg(90))?;
 
-    // new_by_load_from_path: plain, and circle + resize
-    Ghe2d::new_by_load_from_path(&src_a, None, None, false)
-        .await?
-        .save(&p("04_from_path_plain.png"))?;
-    Ghe2d::new_by_load_from_path(&src_b, Some(500), Some(500), true)
-        .await?
-        .save(&p("04_from_path_circle_500.png"))?;
+    println!("detect_format(src_a.png) = {:?}", Ghe2d::detect_format(&std::fs::read(&src_png)?));
+    println!("detect_format(src_b.jpg) = {:?}", Ghe2d::detect_format(&std::fs::read(&src_jpg)?));
 
-    // compose: chain the three async loaders on one canvas
+    let plain = Ghe2d::from_path(&src_png, ImageOptions::new()).await?;
+    println!("from_path(png) source_format = {:?}", plain.source_format());
+    plain.save(&p("04_from_path_plain.png"), ExportOptions::png())?;
+
+    let circ = Ghe2d::from_path(&src_jpg, ImageOptions::new().size(500, 500).circle(true)).await?;
+    println!("from_path(jpg) source_format = {:?}", circ.source_format());
+    circ.save(&p("04_from_path_circle_500.png"), ExportOptions::png())?;
+
+    // compose: chain draw_image_path with each ComposeMode
     let mut c = Ghe2d::new(1000, 700);
     for y in 0..700u32 {
         c.draw_rect(0, y, 1000, 1, Rgba::new(22, 24, 30, 255));
     }
-    c.load_normal_image(&src_a, 20, 20, Some(300), Some(300), false).await?;
-    c.load_blend_image(&src_b, 350, 60, Some(320), Some(320), false).await?;
-    c.load_overlay_image(&src_a, 700, 360, Some(280), Some(280), true).await?; // circle
-    c.load_overlay_image(&src_b, 900, 620, Some(240), Some(240), false).await?; // mostly off-canvas → clip
+    c.draw_image_path(&src_png, ImageOptions::new().at(20, 20).size(300, 300)).await?; // Normal
+    c.draw_image_path(
+        &src_jpg,
+        ImageOptions::new().at(350, 60).size(320, 320).compose(ComposeMode::Blend),
+    )
+    .await?;
+    c.draw_image_path(
+        &src_png,
+        ImageOptions::new().at(700, 360).size(280, 280).circle(true).compose(ComposeMode::Overlay),
+    )
+    .await?;
+    c.draw_image_path(
+        &src_jpg,
+        ImageOptions::new().at(900, 620).size(240, 240).compose(ComposeMode::Overlay),
+    )
+    .await?; // mostly off-canvas → clipped
 
-    c.save_with_png(&p("04_async_composite.png"), CompressionType::Default, FilterType::Adaptive)?;
-    c.save_with_webp(&p("04_async_composite.webp"), 85.0)?;
+    c.save(&p("04_async_composite.png"), ExportOptions::png())?;
+    c.save(&p("04_async_composite.webp"), ExportOptions::webp(85.0))?;
 
     println!("wrote 04_* files to {}", o.display());
     Ok(())
