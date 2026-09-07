@@ -3,12 +3,15 @@ name = "ghe2d"
 version = "0.2.0"
 rust-version = "1.80"
 edition = "2021"
-description = "A tool easy to make shapes"
+description = "A simple 2D image canvas: anti-aliased shapes, real text shaping (Arabic / RTL / bidi), image compositing, and PNG / JPEG / WebP export — all through a small builder API."
 readme = "README.md"
-license = "ISC"
-keywords = ["canvas", "shapes", "2d"]
+license = "MIT"
+repository = "https://github.com/Ghe2d/Ghe2d"
+homepage = "https://github.com/Ghe2d/Ghe2d"
+keywords = ["canvas", "graphics", "2d", "text-rendering", "image"]
+categories = ["graphics", "multimedia::images", "rendering"]
 authors = ["clove7 hlever.dev@gmail.com"]
-include = ["**/*.rs", "Cargo.toml", "README.md", "CHANGELOG.md", "LICENSE.md"]
+include = ["**/*.rs", "Cargo.toml", "README.md", "CHANGELOG.md", "LICENSE"]
 
 [dependencies]
 image = "0.25.6"

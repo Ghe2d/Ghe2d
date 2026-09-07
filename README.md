@@ -127,4 +127,4 @@ lands in `target/example-output/`.
 shaping, JPEG support, hardened error handling). See [`CHANGELOG.md`](CHANGELOG.md) for the
 full list and a migration snippet.
 
-License: ISC.
+License: [LICENSE-MIT](LICENSE).
