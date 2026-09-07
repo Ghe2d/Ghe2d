@@ -12,7 +12,7 @@ use std::path::PathBuf;
 
 use ghe2d::font::LoadFont;
 use ghe2d::utility::Rgba;
-use ghe2d::{ExportOptions, Ghe2d, LineLayout, TextAlign, TextOptions};
+use ghe2d::{ExportOptions, Ghe2d, LineLayout, RectOptions, TextAlign, TextOptions};
 
 fn asset(p: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(p)
@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ruwudu = LoadFont::new(fp("Ruwudu-Regular.ttf"))?;
 
     let mut g = Ghe2d::new(1000, 1600);
-    g.draw_rect(0, 0, 1000, 1600, Rgba::new(18, 20, 28, 255));
+    g.draw_rect(RectOptions::solid(0.0, 0.0, 1000.0, 1600.0, Rgba::rgb(18, 20, 28)));
 
     let white = Rgba::new(240, 240, 245, 255);
     let gold = Rgba::new(220, 170, 70, 255);
@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // --- width + alignment (box is x=40..960) ---
     let box_w = 920.0;
-    g.draw_rect(40, 800, box_w as u32, 2, Rgba::new(60, 66, 84, 255));
+    g.draw_rect(RectOptions::solid(40.0, 800.0, box_w, 2.0, Rgba::rgb(60, 66, 84)));
     g.draw_text(TextOptions::new(rubik.clone(), "left aligned").at(40.0, 810.0).size(34.0).color(white).width(box_w).align(TextAlign::Left));
     g.draw_text(TextOptions::new(rubik.clone(), "centered").at(40.0, 860.0).size(34.0).color(gold).width(box_w).align(TextAlign::Center));
     g.draw_text(TextOptions::new(rubik.clone(), "right aligned").at(40.0, 910.0).size(34.0).color(faint).width(box_w).align(TextAlign::Right));
@@ -95,7 +95,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     .enumerate()
     {
         let x = 40.0 + i as f32 * 320.0;
-        g.draw_rect(x as u32, 1360, 300, 300, Rgba::new(28, 32, 44, 255));
+        g.draw_rect(RectOptions::solid(x, 1360.0, 300.0, 300.0, Rgba::rgb(28, 32, 44)));
         g.draw_text(TextOptions::new(rubik.clone(), label).at(x + 8.0, 1364.0).size(20.0).color(faint));
         g.draw_text(
             TextOptions::new(cairo.clone(), block)

@@ -9,7 +9,7 @@
 use std::path::PathBuf;
 
 use ghe2d::utility::Rgba;
-use ghe2d::{ComposeMode, ExportOptions, Ghe2d, Ghe2dError, ImageOptions};
+use ghe2d::{CircleOptions, ComposeMode, ExportOptions, Ghe2d, Ghe2dError, ImageOptions, RectOptions};
 
 fn out_dir() -> PathBuf {
     let d = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/example-output");
@@ -20,10 +20,10 @@ fn out_dir() -> PathBuf {
 fn make_sprite() -> Result<Vec<u8>, Ghe2dError> {
     let mut s = Ghe2d::new(300, 300);
     // leave the border transparent so Blend / Overlay have something to show
-    s.draw_circle(150, 150, 140, Rgba::new(30, 30, 40, 255));
-    s.draw_circle(150, 150, 130, Rgba::new(240, 90, 90, 220));
-    s.draw_circle(150, 150, 80, Rgba::new(250, 220, 120, 200));
-    s.draw_rect(120, 120, 60, 60, Rgba::new(60, 120, 240, 255));
+    s.draw_circle(CircleOptions::solid(150.0, 150.0, 140.0, Rgba::rgb(30, 30, 40)));
+    s.draw_circle(CircleOptions::solid(150.0, 150.0, 130.0, Rgba::new(240, 90, 90, 220)));
+    s.draw_circle(CircleOptions::solid(150.0, 150.0, 80.0, Rgba::new(250, 220, 120, 200)));
+    s.draw_rect(RectOptions::solid(120.0, 120.0, 60.0, 60.0, Rgba::rgb(60, 120, 240)));
     s.encode(ExportOptions::png())
 }
 
@@ -31,7 +31,7 @@ fn make_photo() -> Result<Vec<u8>, Ghe2dError> {
     let mut p = Ghe2d::new(400, 400);
     for y in 0..400u32 {
         let t = y as f32 / 400.0;
-        p.draw_rect(0, y, 400, 1, Rgba::new((t * 200.0) as u8, 40, (200.0 - t * 150.0) as u8, 255));
+        p.draw_rect(RectOptions::solid(0.0, y as f32, 400.0, 1.0, Rgba::rgb((t * 200.0) as u8, 40, (200.0 - t * 150.0) as u8)));
     }
     p.encode(ExportOptions::png())
 }
@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // compositing onto a fresh base
     let mut base = Ghe2d::new(900, 600);
     for y in 0..600u32 {
-        base.draw_rect(0, y, 900, 1, Rgba::new(16, 18, 24, 255));
+        base.draw_rect(RectOptions::solid(0.0, y as f32, 900.0, 1.0, Rgba::rgb(16, 18, 24)));
     }
     base.draw_image_bytes(sprite.clone(), ImageOptions::new().at(40, 40).size(200, 200))?; // Normal
     base.draw_image_bytes(

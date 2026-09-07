@@ -12,7 +12,7 @@
 use std::path::PathBuf;
 
 use ghe2d::utility::Rgba;
-use ghe2d::{ComposeMode, ExportOptions, Ghe2d, ImageOptions};
+use ghe2d::{CircleOptions, ComposeMode, ExportOptions, Ghe2d, ImageOptions, RectOptions};
 
 fn out_dir() -> PathBuf {
     let d = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/example-output");
@@ -22,8 +22,8 @@ fn out_dir() -> PathBuf {
 
 fn make_source(w: u32, h: u32, rgba: [u8; 4]) -> Ghe2d {
     let mut g = Ghe2d::new(w, h);
-    g.draw_rect(0, 0, w, h, Rgba::new(rgba[0], rgba[1], rgba[2], rgba[3]));
-    g.draw_circle(w / 2, h / 2, w.min(h) / 2 - 4, Rgba::new(255, 255, 255, 90));
+    g.draw_rect(RectOptions::solid(0.0, 0.0, w as f32, h as f32, Rgba::new(rgba[0], rgba[1], rgba[2], rgba[3])));
+    g.draw_circle(CircleOptions::solid(w as f32 / 2.0, h as f32 / 2.0, (w.min(h) / 2 - 4) as f32, Rgba::new(255, 255, 255, 90)));
     g
 }
 
@@ -52,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // compose: chain draw_image_path with each ComposeMode
     let mut c = Ghe2d::new(1000, 700);
     for y in 0..700u32 {
-        c.draw_rect(0, y, 1000, 1, Rgba::new(22, 24, 30, 255));
+        c.draw_rect(RectOptions::solid(0.0, y as f32, 1000.0, 1.0, Rgba::rgb(22, 24, 30)));
     }
     c.draw_image_path(&src_png, ImageOptions::new().at(20, 20).size(300, 300)).await?; // Normal
     c.draw_image_path(

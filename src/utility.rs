@@ -7,8 +7,17 @@ pub struct Rgba {
 }
 
 impl Rgba {
+    pub const BLACK: Rgba = Rgba { r: 0, g: 0, b: 0, a: 255 };
+    pub const WHITE: Rgba = Rgba { r: 255, g: 255, b: 255, a: 255 };
+    pub const TRANSPARENT: Rgba = Rgba { r: 0, g: 0, b: 0, a: 0 };
+
     pub fn new(r: u8, g: u8, b: u8, a: u8) -> Rgba {
         Rgba { r, g, b, a }
+    }
+
+    /// Opaque colour from RGB (`a = 255`).
+    pub fn rgb(r: u8, g: u8, b: u8) -> Rgba {
+        Rgba { r, g, b, a: 255 }
     }
 
     pub fn to_rgba_image(self) -> image::Rgba<u8> {
@@ -20,25 +29,29 @@ impl Rgba {
         let bg = background;
         let alpha = alpha as f32 / 255.0;
         let inv_alpha = 1.0 - alpha;
-    
-        let r = (fg.r as f32 * alpha + bg.r as f32 * inv_alpha) as u8;
-        let g = (fg.g as f32 * alpha + bg.g as f32 * inv_alpha) as u8;
-        let b = (fg.b as f32 * alpha + bg.b as f32 * inv_alpha) as u8;
-        let a = (fg.a as f32 * alpha + bg.a as f32 * inv_alpha) as u8;
-    
-        image::Rgba([r, g, b, a])
+
+        let mix = |f: u8, b: u8| (f as f32 * alpha + b as f32 * inv_alpha).round().clamp(0.0, 255.0) as u8;
+        image::Rgba([mix(fg.r, bg.r), mix(fg.g, bg.g), mix(fg.b, bg.b), mix(fg.a, bg.a)])
     }
 
     pub fn blend(foreground: Self, background: Self) -> image::Rgba<u8> {
         let alpha_fg = foreground.a as f32 / 255.0;
         let alpha_bg = background.a as f32 / 255.0;
         let combined_alpha = alpha_fg + alpha_bg * (1.0 - alpha_fg);
-    
-        let r = (foreground.r as f32 * alpha_fg + background.r as f32 * alpha_bg * (1.0 - alpha_fg)) / combined_alpha;
-        let g = (foreground.g as f32 * alpha_fg + background.g as f32 * alpha_bg * (1.0 - alpha_fg)) / combined_alpha;
-        let b = (foreground.b as f32 * alpha_fg + background.b as f32 * alpha_bg * (1.0 - alpha_fg)) / combined_alpha;
-    
-        image::Rgba([r as u8, g as u8, b as u8, (combined_alpha * 255.0) as u8])
+        if combined_alpha <= f32::EPSILON {
+            return image::Rgba([0, 0, 0, 0]);
+        }
+
+        let mix = |f: u8, b: u8| {
+            let v = (f as f32 * alpha_fg + b as f32 * alpha_bg * (1.0 - alpha_fg)) / combined_alpha;
+            v.round().clamp(0.0, 255.0) as u8
+        };
+        image::Rgba([
+            mix(foreground.r, background.r),
+            mix(foreground.g, background.g),
+            mix(foreground.b, background.b),
+            (combined_alpha * 255.0).round().clamp(0.0, 255.0) as u8,
+        ])
     }
 
     pub fn enhance_brightness(pixel: Self, distance: u32, edge_width: u32) -> image::Rgba<u8> {

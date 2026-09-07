@@ -12,7 +12,7 @@ use std::path::PathBuf;
 
 use ghe2d::font::LoadFont;
 use ghe2d::utility::Rgba;
-use ghe2d::{ExportOptions, Ghe2d, Ghe2dError, ImageOptions, TextAlign, TextOptions};
+use ghe2d::{CircleOptions, ExportOptions, Ghe2d, Ghe2dError, ImageOptions, RectOptions, TextAlign, TextOptions};
 
 fn asset(p: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(p)
@@ -25,10 +25,10 @@ fn out_dir() -> PathBuf {
 
 fn make_logo() -> Result<Vec<u8>, Ghe2dError> {
     let mut l = Ghe2d::new(400, 400);
-    l.draw_rect(0, 0, 400, 400, Rgba::new(255, 255, 255, 255));
-    l.draw_circle(200, 200, 190, Rgba::new(24, 118, 210, 255));
-    l.draw_circle(200, 200, 120, Rgba::new(255, 255, 255, 255));
-    l.draw_circle(200, 200, 60, Rgba::new(255, 176, 32, 255));
+    l.draw_rect(RectOptions::solid(0.0, 0.0, 400.0, 400.0, Rgba::WHITE));
+    l.draw_circle(CircleOptions::solid(200.0, 200.0, 190.0, Rgba::rgb(24, 118, 210)));
+    l.draw_circle(CircleOptions::solid(200.0, 200.0, 120.0, Rgba::WHITE));
+    l.draw_circle(CircleOptions::solid(200.0, 200.0, 60.0, Rgba::rgb(255, 176, 32)));
     l.encode(ExportOptions::png())
 }
 
@@ -45,23 +45,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut g = Ghe2d::new(W, H);
 
+    let (wf, hf) = (W as f32, H as f32);
+
     // gradient
     for y in 0..H {
         let t = y as f32 / H as f32;
-        g.draw_rect(0, y, W, 1, Rgba::new((12.0 + t * 20.0) as u8, (16.0 + t * 30.0) as u8, (40.0 + t * 70.0) as u8, 255));
+        let c = Rgba::rgb((12.0 + t * 20.0) as u8, (16.0 + t * 30.0) as u8, (40.0 + t * 70.0) as u8);
+        g.draw_rect(RectOptions::solid(0.0, y as f32, wf, 1.0, c));
     }
-    // scattered decoration circles
+    // scattered decoration circles (low alpha == a soft glow)
     for i in 0..40u32 {
-        let x = (i * 137) % W;
-        let y = (i * 91) % H;
-        g.draw_circle(x, y, 6 + (i % 5) * 6, Rgba::new(255, 255, 255, 18));
+        let x = ((i * 137) % W) as f32;
+        let y = ((i * 91) % H) as f32;
+        g.draw_circle(CircleOptions::solid(x, y, (6 + (i % 5) * 6) as f32, Rgba::new(255, 255, 255, 18)));
     }
     // framed border
-    let frame = Rgba::new(220, 180, 90, 255);
-    g.draw_rect(40, 40, W - 80, 6, frame);
-    g.draw_rect(40, H - 46, W - 80, 6, frame);
-    g.draw_rect(40, 40, 6, H - 80, frame);
-    g.draw_rect(W - 46, 40, 6, H - 80, frame);
+    let frame = Rgba::rgb(220, 180, 90);
+    g.draw_rect(RectOptions::solid(40.0, 40.0, wf - 80.0, 6.0, frame));
+    g.draw_rect(RectOptions::solid(40.0, hf - 46.0, wf - 80.0, 6.0, frame));
+    g.draw_rect(RectOptions::solid(40.0, 40.0, 6.0, hf - 80.0, frame));
+    g.draw_rect(RectOptions::solid(wf - 46.0, 40.0, 6.0, hf - 80.0, frame));
 
     // circle-cropped logo
     g.draw_image_bytes(

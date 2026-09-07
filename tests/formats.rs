@@ -1,10 +1,10 @@
 use ghe2d::utility::Rgba;
-use ghe2d::{ExportOptions, Ghe2d, Ghe2dError, ImageFormat, ImageOptions};
+use ghe2d::{ExportOptions, Ghe2d, Ghe2dError, ImageFormat, ImageOptions, RectOptions};
 
 /// 64x64 canvas: opaque blue on the left half, fully transparent on the right half.
 fn canvas() -> Ghe2d {
     let mut g = Ghe2d::new(64, 64);
-    g.draw_rect(0, 0, 32, 64, Rgba::new(0, 0, 255, 255));
+    g.draw_rect(RectOptions::solid(0.0, 0.0, 32.0, 64.0, Rgba::new(0, 0, 255, 255)));
     g
 }
 
@@ -92,7 +92,7 @@ fn detection_ignores_a_lying_file_extension() {
 #[test]
 fn small_canvas_encodes_and_decodes_for_every_format() {
     let mut g = Ghe2d::new(24, 24);
-    g.draw_rect(2, 2, 20, 20, Rgba::new(200, 120, 40, 255));
+    g.draw_rect(RectOptions::solid(2.0, 2.0, 20.0, 20.0, Rgba::new(200, 120, 40, 255)));
     for opts in [ExportOptions::png(), ExportOptions::jpeg(85), ExportOptions::webp(80.0)] {
         let bytes = g.encode(opts).unwrap_or_else(|e| panic!("{opts:?}: {e}"));
         let back = Ghe2d::from_bytes(bytes, ImageOptions::new()).unwrap();

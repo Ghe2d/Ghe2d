@@ -1,15 +1,15 @@
 use ghe2d::utility::Rgba;
-use ghe2d::{ComposeMode, ErrorMessage, Ghe2d, Ghe2dError, ImageOptions};
+use ghe2d::{ComposeMode, ErrorMessage, Ghe2d, Ghe2dError, ImageOptions, RectOptions};
 
 fn src_png(color: Rgba) -> Vec<u8> {
     let mut g = Ghe2d::new(20, 20);
-    g.draw_rect(0, 0, 20, 20, color);
+    g.draw_rect(RectOptions::solid(0.0, 0.0, 20.0, 20.0, color));
     g.encode(ghe2d::ExportOptions::png()).unwrap()
 }
 
 fn blue_base() -> Ghe2d {
     let mut g = Ghe2d::new(40, 40);
-    g.draw_rect(0, 0, 40, 40, Rgba::new(0, 0, 255, 255));
+    g.draw_rect(RectOptions::solid(0.0, 0.0, 40.0, 40.0, Rgba::new(0, 0, 255, 255)));
     g
 }
 

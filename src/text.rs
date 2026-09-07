@@ -451,15 +451,8 @@ fn render_line(
                         let alpha = (v * 255.0) as u8;
                         let background =
                             Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]);
-                        let blend = Rgba::blend_with_alpha(&color, background, alpha);
-                        crate::rect::draw_rect(
-                            img,
-                            px,
-                            py,
-                            1,
-                            1,
-                            Rgba::new(blend.0[0], blend.0[1], blend.0[2], blend.0[3]),
-                        );
+                        // glyph coverage already folds into `alpha`; write the result directly
+                        img.put_pixel(px, py, Rgba::blend_with_alpha(&color, background, alpha));
                     });
                 }
             }

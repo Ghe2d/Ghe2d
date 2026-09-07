@@ -10,8 +10,8 @@ use std::path::Path;
 
 use ghe2d::utility::Rgba;
 use ghe2d::{
-    ErrorMessage, ExportOptions, Ghe2d, Ghe2dError, ImageFormat, ImageOptions, LineLayout,
-    TextAlign, TextOptions,
+    CircleOptions, ErrorMessage, ExportOptions, Ghe2d, Ghe2dError, ImageFormat, ImageOptions,
+    LineLayout, PolygonOptions, RectOptions, StarOptions, TextAlign, TextOptions,
 };
 
 fn check(label: &str, ok: bool) {
@@ -21,7 +21,7 @@ fn check(label: &str, ok: bool) {
 
 fn tiny_valid_png() -> Vec<u8> {
     let mut g = Ghe2d::new(24, 24);
-    g.draw_rect(0, 0, 24, 24, Rgba::new(10, 20, 30, 255));
+    g.draw_rect(RectOptions::solid(0.0, 0.0, 24.0, 24.0, Rgba::rgb(10, 20, 30)));
     g.encode(ExportOptions::png()).unwrap()
 }
 
@@ -63,12 +63,14 @@ fn main() {
     // --- shape clipping on a tiny canvas (must not panic) --------------------
     {
         let mut g = Ghe2d::new(8, 8);
-        let c = Rgba::new(255, 255, 255, 255);
-        g.draw_rect(100, 100, 9999, 9999, c);
-        g.draw_rect(4, 4, 9999, 9999, c);
-        g.draw_circle(0, 0, 5000, c);
-        g.draw_circle(4, 4, 0, c);
-        g.draw_circle(9999, 9999, 3, c);
+        let c = Rgba::WHITE;
+        g.draw_rect(RectOptions::solid(100.0, 100.0, 9999.0, 9999.0, c));
+        g.draw_rect(RectOptions::new(9999.0, 9999.0).at(4.0, 4.0).rotation(20.0).fill(c));
+        g.draw_circle(CircleOptions::solid(0.0, 0.0, 5000.0, c));
+        g.draw_circle(CircleOptions::solid(4.0, 4.0, 0.0, c));
+        g.draw_circle(CircleOptions::solid(9999.0, 9999.0, 3.0, c));
+        g.draw_polygon(PolygonOptions::new(9999.0).at(4.0, 4.0).sides(1).fill(c));
+        g.draw_star(StarOptions::new(9999.0).at(-50.0, -50.0).points(0).fill(c).stroke(c, 3.0));
         check("tiny-canvas shape clipping -> encode(png) Ok", g.encode(ExportOptions::png()).is_ok());
     }
 

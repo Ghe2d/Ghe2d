@@ -101,6 +101,29 @@ methods driven by builders.
   `pub use num_integer` re-export is gone. Modules `ghe2d::buffer` and `ghe2d::load_image`
   are replaced by `ghe2d::image_io` and `ghe2d::export`.
 
+### Shapes — builder API + polygon / star / rhombus / line
+
+**BREAKING.**
+
+- `draw_rect` / `draw_circle` now take **`RectOptions` / `CircleOptions`** builders with
+  `f32` coordinates (was `(x, y, w, h, color)` / `(x, y, r, color)` as `u32`).
+  `RectOptions::solid(x, y, w, h, color)` / `CircleOptions::solid(x, y, r, color)` are
+  one-shot constructors for the common case.
+- New shapes: **`draw_polygon`** (regular N-gon, `sides` default 3 = triangle),
+  **`draw_star`** (`points` default 5, `inner_ratio` default 0.45), **`draw_rhombus`**
+  (diamond, `width × height`), **`draw_line`** (`width` default 1). Polygons, stars,
+  rhombus and rect take a `rotation` in degrees.
+- Every shape has `fill: Option<Rgba>` + `stroke: Option<Stroke>` — fill only, outline
+  only (`.no_fill().stroke(c, w)`), or both.
+- `draw_rect` now **alpha-blends** its fill (was an opaque overwrite).
+- `draw_circle` now draws a **solid disc** (was a radial `alpha = 1 − dist²/r²` glow —
+  rebuild a glow with a low-alpha `fill` or stacked circles).
+- **Every shape edge is anti-aliased**, always on: rect / circle / line use analytic
+  coverage, polygons (triangle / star / rhombus / rotated rect) use 4×4 supersampling.
+- `Rgba` gains `BLACK` / `WHITE` / `TRANSPARENT` consts and `Rgba::rgb(r, g, b)`;
+  `Rgba::blend` / `blend_with_alpha` now round (were truncating).
+- Modules `ghe2d::rect` / `ghe2d::circle` → `ghe2d::shapes`.
+
 ### Changed
 
 - New crate-wide error type **`Ghe2dError`** (`Debug + Display + std::error::Error`, **not
@@ -136,4 +159,12 @@ g.save("out.png", ExportOptions::png().compression(CompressionType::Best)
                                       .filter(FilterType::Paeth))?;
 let font = LoadFont::new(path)?;
 g.draw_text(TextOptions::new(font, "hi").at(10.0, 20.0).size(32.0).color(color));
+
+// shapes
+// before:  g.draw_rect(10, 10, 80, 40, color);  g.draw_circle(60, 60, 30, color);
+use ghe2d::{RectOptions, CircleOptions, PolygonOptions, StarOptions};
+g.draw_rect(RectOptions::solid(10.0, 10.0, 80.0, 40.0, color));
+g.draw_circle(CircleOptions::solid(60.0, 60.0, 30.0, color));
+g.draw_polygon(PolygonOptions::new(40.0).at(100.0, 100.0).sides(6).rotation(15.0).fill(color));
+g.draw_star(StarOptions::new(50.0).at(200.0, 100.0).points(5).no_fill().stroke(color, 3.0));
 ```

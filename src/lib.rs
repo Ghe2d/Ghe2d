@@ -3,8 +3,7 @@ pub mod image_io;
 pub mod export;
 pub mod utility;
 pub mod font;
-pub mod rect;
-pub mod circle;
+pub mod shapes;
 
 pub use rusttype;
 pub use rustybuzz;
@@ -19,6 +18,9 @@ pub use text::{LineLayout, TextAlign, TextOptions};
 pub use image_io::{ComposeMode, ImageOptions};
 pub use export::{ExportFormat, ExportOptions};
 pub use image::ImageFormat;
+pub use shapes::{
+    CircleOptions, LineOptions, PolygonOptions, RectOptions, RhombusOptions, StarOptions, Stroke,
+};
 
 /// Load/decode failures produced by the internal image helpers.
 #[derive(Clone, Debug)]
@@ -183,20 +185,34 @@ impl Ghe2d {
         self.draw_image_bytes(bytes, opts)
     }
 
-    pub fn draw_rect(
-        &mut self,
-        x: u32,
-        y: u32,
-        width: u32,
-        height: u32,
-        color: utility::Rgba,
-    ) -> &Ghe2d {
-        rect::draw_rect(&mut self.image, x, y, width, height, color);
+    pub fn draw_rect(&mut self, opts: shapes::RectOptions) -> &mut Self {
+        shapes::draw_rect(&mut self.image, &opts);
         self
     }
 
-    pub fn draw_circle(&mut self, x: u32, y: u32, raduis: u32, color: utility::Rgba) -> &Ghe2d {
-        circle::draw_circle(&mut self.image, x, y, raduis, color);
+    pub fn draw_circle(&mut self, opts: shapes::CircleOptions) -> &mut Self {
+        shapes::draw_circle(&mut self.image, &opts);
+        self
+    }
+
+    /// Regular N-gon (default 3 sides = an equilateral triangle).
+    pub fn draw_polygon(&mut self, opts: shapes::PolygonOptions) -> &mut Self {
+        shapes::draw_polygon(&mut self.image, &opts);
+        self
+    }
+
+    pub fn draw_star(&mut self, opts: shapes::StarOptions) -> &mut Self {
+        shapes::draw_star(&mut self.image, &opts);
+        self
+    }
+
+    pub fn draw_rhombus(&mut self, opts: shapes::RhombusOptions) -> &mut Self {
+        shapes::draw_rhombus(&mut self.image, &opts);
+        self
+    }
+
+    pub fn draw_line(&mut self, opts: shapes::LineOptions) -> &mut Self {
+        shapes::draw_line(&mut self.image, &opts);
         self
     }
 }
