@@ -8,13 +8,7 @@ readme = "README.md"
 license = "ISC"
 keywords = ["canvas", "shapes", "2d"]
 authors = ["Hlever hlever.dev@gmail.com"]
-include = [
-    "**/*.rs",
-    "Cargo.toml",
-    "README.md",
-    "CHANGELOG.md",
-    "LICENSE.md"
-]
+include = ["**/*.rs", "Cargo.toml", "README.md", "CHANGELOG.md", "LICENSE.md"]
 
 [dependencies]
 image = "0.25.6"
@@ -23,8 +17,8 @@ rustybuzz = "0.20"
 unicode-bidi = "0.3"
 regex = "1.11.1"
 reqwest = "0.12.15"
-png = "0.17.16"
-libwebp-sys = "0.12.1"
+png = "0.18.1"
+libwebp-sys = "0.14.4"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }
