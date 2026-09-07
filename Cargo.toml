@@ -1,7 +1,7 @@
 [package]
 name = "ghe2d"
-version = "0.1.3"
-rust-version = "1.77"
+version = "0.2.0"
+rust-version = "1.80"
 edition = "2021"
 description = "A tool easy to make shapes"
 readme = "README.md"
@@ -12,15 +12,20 @@ include = [
     "**/*.rs",
     "Cargo.toml",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE.md"
 ]
 
 [dependencies]
 image = "0.25.6"
 rusttype = "0.9.3"
+rustybuzz = "0.20"
+unicode-bidi = "0.3"
 regex = "1.11.1"
-ar-reshaper = "1.5.0"
 reqwest = "0.12.15"
 num-integer = "0.1.46"
 png = "0.17.16"
 libwebp-sys = "0.12.1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }
