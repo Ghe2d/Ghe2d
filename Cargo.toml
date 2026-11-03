@@ -1,6 +1,6 @@
 [package]
 name = "ghe2d"
-version = "0.2.0"
+version = "0.2.1"
 rust-version = "1.80"
 edition = "2021"
 description = "A simple 2D image canvas: anti-aliased shapes, real text shaping (Arabic / RTL / bidi), image compositing, and PNG / JPEG / WebP export — all through a small builder API."
@@ -11,17 +11,18 @@ homepage = "https://github.com/Ghe2d/Ghe2d"
 keywords = ["canvas", "graphics", "2d", "text-rendering", "image"]
 categories = ["graphics", "multimedia::images", "rendering"]
 authors = ["clove7 hlever.dev@gmail.com"]
-include = ["**/*.rs", "Cargo.toml", "README.md", "CHANGELOG.md", "LICENSE"]
+include = ["src/**/*.rs", "tests/**/*.rs", "examples/**/*.rs", "Cargo.toml", "README.md", "CHANGELOG.md", "LICENSE"]
 
 [dependencies]
-image = "0.25.6"
+image = "0.25.10"
 rusttype = "0.9.3"
-rustybuzz = "0.20"
-unicode-bidi = "0.3"
-regex = "1.11.1"
-reqwest = "0.12.15"
+ab_glyph_rasterizer = "0.1.10"
+rustybuzz = "0.20.1"
+unicode-bidi = "0.3.18"
+regex = "1.13.1"
+reqwest = "0.13.5"
 png = "0.18.1"
 libwebp-sys = "0.14.4"
 
 [dev-dependencies]
-tokio = { version = "1", features = ["rt", "macros"] }
+tokio = { version = "1.54.1", features = ["rt", "macros"] }

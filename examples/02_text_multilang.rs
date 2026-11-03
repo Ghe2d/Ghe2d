@@ -31,8 +31,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tajawal = LoadFont::new(fp("Tajawal-Bold.ttf"))?;
     let ruwudu = LoadFont::new(fp("Ruwudu-Regular.ttf"))?;
 
-    let mut g = Ghe2d::new(1000, 1600);
-    g.draw_rect(RectOptions::solid(0.0, 0.0, 1000.0, 1600.0, Rgba::rgb(18, 20, 28)));
+    let mut g = Ghe2d::new(1000, 1700);
+    g.draw_rect(RectOptions::solid(0.0, 0.0, 1000.0, 1700.0, Rgba::rgb(18, 20, 28)));
 
     let white = Rgba::new(240, 240, 245, 255);
     let gold = Rgba::new(220, 170, 70, 255);
@@ -42,7 +42,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // --- basic lines (no box) ---
     g.draw_text(TextOptions::new(rubik.clone(), "The quick brown fox 0123456789").at(40.0, 40.0).size(34.0).color(white));
     g.draw_text(TextOptions::new(cairo.clone(), "مرحبا بالعالم من مكتبة ghe2d").at(40.0, 120.0).size(44.0).color(gold));
-    g.draw_text(TextOptions::new(cairo.clone(), "الإصدار v0.2.0 — تجربة 2026 مع أرقام 42").at(40.0, 210.0).size(36.0).color(white));
+    g.draw_text(TextOptions::new(cairo.clone(), "الإصدار v0.2.1 — تجربة 2026 مع أرقام 42").at(40.0, 210.0).size(36.0).color(white));
     // mixed-direction line: RTL words + LTR token + digits, must read in order
     g.draw_text(TextOptions::new(cairo.clone(), "سعر المنتج 250 ريال — order #42").at(40.0, 280.0).size(36.0).color(faint));
     g.draw_text(TextOptions::new(tajawal.clone(), "عنوان عريض").at(40.0, 350.0).size(90.0).color(gold));

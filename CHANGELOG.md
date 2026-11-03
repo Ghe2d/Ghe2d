@@ -1,170 +1,46 @@
 # Changelog
 
-## 0.2.0
+## 0.2.1
 
-**BREAKING.** This release removes every known panic/abort path in the crate and makes the
-public API consistently fallible.
+Additive release: nothing in the 0.2.0 public API changed.
 
-### Fixed
+### Added
 
-- **`image_to_webp_buffer` / `to_webp_buffer` no longer abort the process.** The old code
-  ignored `WebPEncodeBGRA`'s return value and called `slice::from_raw_parts` on the NULL
-  pointer libwebp leaves on failure — undefined behaviour that fired a non-unwinding
-  `abort` (`exit code 0xc0000409`), uncatchable by `catch_unwind` or `.map_err`. It now
-  validates dimensions up front and checks the encoder result, returning
-  `Err(Ghe2dError::ImageTooLarge)` for a side `> 16383` px and `Err(Ghe2dError::WebpEncode)`
-  otherwise.
-- **libwebp output buffer is now freed** with `WebPFree` on every path (was leaked on every
-  successful encode).
-- **Dropped a redundant full-image clone** in the RGBA→BGRA swizzle.
-- **`image_to_png_buffer` / `to_png_buffer`** no longer panic on a zero-sized canvas; they
-  return `Err(Ghe2dError::PngEncode)`.
-- **`LoadFont::new`** no longer panics on a missing file or invalid font data.
-- **Shapes and text clip instead of panicking.** `draw_rect`, `draw_circle` and glyph
-  rasterisation in `draw_text` now draw the in-bounds portion and silently skip anything
-  outside the canvas. Coordinate math is overflow-safe.
-- **Circle-mask underflow fixed.** The `is_circle` resize path in `load_image` /
-  `load_buffer` computed `x - cx` on `u32`, panicking in debug and producing a corrupted
-  mask in release for the left/top half of the image. Distances are now computed with
-  signed arithmetic and squared comparison (no `sqrt`).
-- **`add_image_blend_mut`** blended every source pixel against the overlay's origin pixel
-  `(x, y)` instead of the matching destination pixel; it now reads the correct destination
-  and clips out-of-bounds reads.
-- The per-call `Regex::new(...).unwrap()` compilation in `check_is_url_image` is now a
-  `LazyLock` static compiled once.
+- **`anim` module** (re-exported at the crate root):
+  - `decode_animation(bytes, &DecodeLimits) -> Result<Animation, AnimError>` decodes
+    PNG / JPEG (one frame), GIF and animated WebP (every frame with its delay, via
+    `image::AnimationDecoder`). A 0 ms delay becomes 100 ms, like browsers do.
+  - Safety limits chosen by the caller (`max_frames`, `max_total_pixels`, `max_duration_ms`).
+    The canvas is checked before decoding and the rest as each frame arrives, so an
+    over-limit file fails with a clear `AnimError` without decoding everything.
+  - `Animation::encode_webp(quality)` / `encode_animated_webp` write an animated WebP with
+    libwebp's `WebPAnimEncoder` (same `libwebp-sys` as before).
+  - `crop_image` / `resize_image` (Lanczos3) for stills, and `Animation::crop` /
+    `Animation::resize` applying the same operation to every frame.
+  - `AnimError` is a separate error type, so `Ghe2dError` is unchanged.
+  - Animated WebP encoding lets each frame choose lossy or lossless (`allow_mixed`) and forces a key frame at least every 6 frames, so flat backgrounds show no visible ghost traces of earlier frames (background error at most 1 of 255) and files get smaller.
+  - `decode_animation` also accepts still (non-animated) WebP and BMP, returning a
+    single-frame `Animation` with the same canvas-size limit check as PNG / JPEG.
+- **Font chain (fallback).** `TextOptions::fallback(font)` / `fallbacks(iter)`: a character the
+  primary font lacks is drawn from the first fallback that has it (scaled to the primary's
+  pixels per em). A character no font has now draws the primary's `.notdef` box instead of
+  vanishing (blank/control characters still draw nothing). Marks, joiners and spaces stay with
+  the font of the preceding character. Arabic joining does not cross a font boundary.
+- **Face selection.** `font::FontFamily` (`add`, `pick(weight, italic)`): nearest weight among
+  the family's files, italic preferred when asked, a variable face covering the weight is an
+  exact match. `LoadFont::{weight, is_italic, is_variable, weight_axis, has_glyph}`.
+- **Variable fonts.** `LoadFont::with_weight(w)` and `TextOptions::weight(w)` set the `wght`
+  axis (clamped to the axis range), applied to both shaping (`rustybuzz` `set_variations`) and
+  rasterizing.
+- **Measuring.** `measure_text(&TextOptions) -> TextMeasure { width, height, size, lines }` and
+  `text_width(font, fallbacks, text, size)` use the same chain, shaping, wrapping and
+  shrink-to-fit as `draw_text`, so a layout measured ahead of time breaks lines exactly like
+  the final drawing.
 
-### Text engine
+### Changed (internal, API unchanged)
 
-- **`draw_text` now uses real OpenType shaping.** The hand-rolled reshaper
-  (`ar-reshaper` → Unicode Arabic Presentation Forms → manual RTL reversal in
-  `fix_arabic_text`) is replaced by `rustybuzz` (a pure-Rust HarfBuzz port) for shaping and
-  `unicode-bidi` for the Unicode Bidirectional Algorithm; `rusttype` stays only as the
-  glyph rasterizer.
-- Any font that contains the base glyphs now renders correctly — fonts that omit the legacy
-  Arabic presentation-form glyphs (common for OpenType-first faces) no longer produce
-  `.notdef` boxes.
-- Mixed LTR/RTL lines are reordered correctly per bidi run.
-- `.notdef` glyphs are skipped (nothing drawn) rather than rendered as tofu.
-- `fix_arabic_text` / `is_arabic` are removed.
-
-### Text layout — `TextOptions` builder
-
-- **`Ghe2d::draw_text` now takes a single [`TextOptions`] builder** instead of seven
-  positional args (`font`, `text`, `x`, `y`, `size`, `color` become `.new(font, text)` +
-  `.at(x, y).size(..).color(..)`). Coordinates and size are `f32`. **BREAKING.**
-- `.width(w)` constrains the text horizontally:
-  - `.wrap(false)` (default) shrinks the effective size until the widest line fits;
-  - `.wrap(true)` greedily word-wraps (an over-long word gets its own line and overflows —
-    glyphs are never split).
-- `.align(TextAlign::{Left,Right,Center})` positions each line inside the width box; without
-  an explicit align it follows the text's base direction (RTL → right, LTR → left). Needs
-  `.width`.
-- `.height(h)` enables the vertical distribution modes and shrinks the size if the line
-  block would be taller than `h`.
-- `.line_layout(LineLayout::…)` — `Gap(px)` (extra px between lines, default `Gap(0.0)` ==
-  previous behavior), `Top(px)` / `Middle(px)` / `Bottom(px)` (need `height`), and
-  `SpaceBetween` / `SpaceEvenly` (need `height`, derive their own spacing).
-- `utility::Rgba` now derives `Copy` (and `Debug`, `PartialEq`, `Eq`).
-
-### Image I/O — option structs, format detection, JPEG
-
-**BREAKING.** The 12 positional-argument load/encode/save methods are replaced by 8
-methods driven by builders.
-
-- **Input** — `ImageOptions` builder + `ComposeMode { Normal (default), Overlay, Blend }`:
-  - `Ghe2d::from_bytes(bytes, ImageOptions)` (sync) and
-    `Ghe2d::from_path(path, ImageOptions).await` (async; local file **or** `http(s)://`)
-    replace `new_by_load_from_buffer` / `new_by_load_from_path`.
-  - `g.draw_image_bytes(bytes, ImageOptions)` (sync) and
-    `g.draw_image_path(path, ImageOptions).await` (async) replace
-    `from_buffer_to_normal` / `from_buffer_to_overlay` /
-    `load_normal_image` / `load_blend_image` / `load_overlay_image` — the `_normal` /
-    `_overlay` / `_blend` suffix is now `ImageOptions::compose(ComposeMode::…)`.
-  - `ImageOptions`: `.at(x, y)` `.size(w, h)` `.width(w)` `.height(h)` `.circle(bool)`
-    `.compose(mode)`. `at` / `compose` are ignored by the constructors.
-- **Format detection**: decoding auto-detects the container from the bytes (PNG / JPEG /
-  WebP / GIF / BMP / TIFF / …). `Ghe2d::detect_format(&[u8]) -> Option<ImageFormat>` and
-  `g.source_format() -> Option<ImageFormat>` (the format a canvas was loaded from; `None`
-  for `Ghe2d::new`). `image::ImageFormat` is re-exported as `ghe2d::ImageFormat`.
-- **Output** — `ExportOptions` + `ExportFormat`:
-  - `g.encode(ExportOptions) -> Result<Vec<u8>, Ghe2dError>` replaces `to_png_buffer` /
-    `to_webp_buffer`.
-  - `g.save(path, ExportOptions) -> Result<(), Ghe2dError>` replaces the old 1-arg `save`
-    and `save_with_png` / `save_with_webp`.
-  - `ExportOptions::png()` / `jpeg(quality)` / `webp(quality)`, plus `.compression(c)` /
-    `.filter(f)` (PNG) and `.background(Rgba)` (JPEG).
-- **JPEG** is now supported for both decode and encode. It has no alpha channel, so
-  `ExportFormat::Jpeg { quality, background }` flattens transparency over `background`
-  (opaque white by default). New `Ghe2dError::JpegEncode`.
-- `Ghe2dError::InvalidText` removed (was unused).
-- Dependency `num-integer` dropped (unused since the circle-mask rewrite); the
-  `pub use num_integer` re-export is gone. Modules `ghe2d::buffer` and `ghe2d::load_image`
-  are replaced by `ghe2d::image_io` and `ghe2d::export`.
-
-### Shapes — builder API + polygon / star / rhombus / line
-
-**BREAKING.**
-
-- `draw_rect` / `draw_circle` now take **`RectOptions` / `CircleOptions`** builders with
-  `f32` coordinates (was `(x, y, w, h, color)` / `(x, y, r, color)` as `u32`).
-  `RectOptions::solid(x, y, w, h, color)` / `CircleOptions::solid(x, y, r, color)` are
-  one-shot constructors for the common case.
-- New shapes: **`draw_polygon`** (regular N-gon, `sides` default 3 = triangle),
-  **`draw_star`** (`points` default 5, `inner_ratio` default 0.45), **`draw_rhombus`**
-  (diamond, `width × height`), **`draw_line`** (`width` default 1). Polygons, stars,
-  rhombus and rect take a `rotation` in degrees.
-- Every shape has `fill: Option<Rgba>` + `stroke: Option<Stroke>` — fill only, outline
-  only (`.no_fill().stroke(c, w)`), or both.
-- `draw_rect` now **alpha-blends** its fill (was an opaque overwrite).
-- `draw_circle` now draws a **solid disc** (was a radial `alpha = 1 − dist²/r²` glow —
-  rebuild a glow with a low-alpha `fill` or stacked circles).
-- **Every shape edge is anti-aliased**, always on: rect / circle / line use analytic
-  coverage, polygons (triangle / star / rhombus / rotated rect) use 4×4 supersampling.
-- `Rgba` gains `BLACK` / `WHITE` / `TRANSPARENT` consts and `Rgba::rgb(r, g, b)`;
-  `Rgba::blend` / `blend_with_alpha` now round (were truncating).
-- Modules `ghe2d::rect` / `ghe2d::circle` → `ghe2d::shapes`.
-
-### Changed
-
-- New crate-wide error type **`Ghe2dError`** (`Debug + Display + std::error::Error`, **not
-  `Clone`** — it can carry `std::io::Error`). `ErrorMessage` is unchanged and is wrapped by
-  `Ghe2dError::Image`.
-- Every fallible public method returns `Result<_, Ghe2dError>` (the image-input methods
-  return `Result<&mut Self, _>` instead of swallowing errors into a hidden buffer).
-- `LoadFont::new` returns `Result<Self, Ghe2dError>`; added `LoadFont::from_bytes`.
-- Removed the unreachable `Ghe2d::errors` buffer and the `Error` / `ErrorKind` types.
-- Dependencies: removed `ar-reshaper`; added `rustybuzz` and `unicode-bidi`. Crate
-  re-exports change accordingly (`pub use ar_reshaper` → `pub use rustybuzz` +
-  `pub use unicode_bidi`).
-- MSRV raised to Rust **1.80** (`std::sync::LazyLock`).
-
-### Migration
-
-```rust
-// before
-let g = Ghe2d::new_by_load_from_buffer(bytes, None, None, false).unwrap();
-g.from_buffer_to_overlay(logo, 10, 10, Some(64), Some(64), true)?;
-let webp = g.to_webp_buffer(70.0).map_err(|_| MyErr)?;
-g.save_with_png("out.png", CompressionType::Best, FilterType::Paeth)?;
-let font = LoadFont::new(path);
-g.draw_text(font, "hi".into(), 10, 20, 32, color);
-
-// after
-use ghe2d::{ImageOptions, ComposeMode, ExportOptions, TextOptions};
-let g = Ghe2d::from_bytes(bytes, ImageOptions::new())?;
-g.draw_image_bytes(logo, ImageOptions::new().at(10, 10).size(64, 64).circle(true)
-                                            .compose(ComposeMode::Overlay))?;
-let webp = g.encode(ExportOptions::webp(70.0))?;
-g.save("out.png", ExportOptions::png().compression(CompressionType::Best)
-                                      .filter(FilterType::Paeth))?;
-let font = LoadFont::new(path)?;
-g.draw_text(TextOptions::new(font, "hi").at(10.0, 20.0).size(32.0).color(color));
-
-// shapes
-// before:  g.draw_rect(10, 10, 80, 40, color);  g.draw_circle(60, 60, 30, color);
-use ghe2d::{RectOptions, CircleOptions, PolygonOptions, StarOptions};
-g.draw_rect(RectOptions::solid(10.0, 10.0, 80.0, 40.0, color));
-g.draw_circle(CircleOptions::solid(60.0, 60.0, 30.0, color));
-g.draw_polygon(PolygonOptions::new(40.0).at(100.0, 100.0).sides(6).rotation(15.0).fill(color));
-g.draw_star(StarOptions::new(50.0).at(200.0, 100.0).points(5).no_fill().stroke(color, 3.0));
-```
+- **Rasterizer.** Glyphs are now drawn from `ttf-parser` outlines (the face rustybuzz already
+  holds, so variation coordinates apply) filled by `ab_glyph_rasterizer`, the same coverage
+  engine `rusttype` used. Reason: `rusttype` 0.9.3 reads outlines without variation support
+  (no `gvar`/`HVAR`), so a variable font would shape at one weight and draw at the default.
+  `rusttype` stays for `LoadFont::font` and line metrics. New dependency: `ab_glyph_rasterizer`.

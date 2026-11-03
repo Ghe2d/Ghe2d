@@ -4,6 +4,7 @@ pub mod export;
 pub mod utility;
 pub mod font;
 pub mod shapes;
+pub mod anim;
 
 pub use rusttype;
 pub use rustybuzz;
@@ -14,10 +15,15 @@ pub use libwebp_sys;
 pub use png;
 pub use reqwest;
 
-pub use text::{LineLayout, TextAlign, TextOptions};
+pub use text::{measure_text, text_width, LineLayout, TextAlign, TextMeasure, TextOptions};
+pub use font::{FontFamily, LoadFont};
 pub use image_io::{ComposeMode, ImageOptions};
 pub use export::{ExportFormat, ExportOptions};
 pub use image::ImageFormat;
+pub use anim::{
+    crop_image, decode_animation, encode_animated_webp, resize_image, AnimError, AnimFrame, Animation,
+    DecodeLimits,
+};
 pub use shapes::{
     CircleOptions, LineOptions, PolygonOptions, RectOptions, RhombusOptions, StarOptions, Stroke,
 };

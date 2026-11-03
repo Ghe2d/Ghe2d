@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .width(content_w).align(TextAlign::Center),
     );
     g.draw_text(
-        TextOptions::new(subtitle_font.clone(), "توليد صور احترافية — الإصدار v0.2.0")
+        TextOptions::new(subtitle_font.clone(), "توليد صور احترافية — الإصدار v0.2.1")
             .at(content_x, 780.0).size(40.0).color(Rgba::new(210, 210, 230, 255))
             .width(content_w).align(TextAlign::Center),
     );

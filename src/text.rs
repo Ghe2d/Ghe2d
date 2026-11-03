@@ -2,7 +2,7 @@
 //!
 //! Pipeline: box fitting (optional word-wrap or shrink-to-fit against a `width`/`height`)
 //! → per line, Unicode BiDi reordering (`unicode-bidi`) + OpenType shaping (`rustybuzz`)
-//! → glyph-by-glyph rasterization with `rusttype` → clipped 1×1 alpha blend.
+//! → glyph outlines (ttf-parser, variation-aware) rasterized with `ab_glyph_rasterizer` → clipped 1×1 alpha blend.
 
 use crate::font::LoadFont;
 use crate::utility::Rgba;
@@ -84,6 +84,8 @@ pub struct TextOptions {
     align: Option<TextAlign>,
     wrap: bool,
     line_layout: LineLayout,
+    fallbacks: Vec<LoadFont>,
+    weight: Option<f32>,
 }
 
 impl TextOptions {
@@ -101,6 +103,8 @@ impl TextOptions {
             align: None,
             wrap: false,
             line_layout: LineLayout::default(),
+            fallbacks: Vec::new(),
+            weight: None,
         }
     }
 
@@ -154,6 +158,91 @@ impl TextOptions {
         self.line_layout = line_layout;
         self
     }
+
+    /// Append a fallback font. Any character the primary font (and earlier fallbacks)
+    /// lacks is drawn from the first font in the chain that has it, never dropped.
+    pub fn fallback(mut self, font: LoadFont) -> Self {
+        self.fallbacks.push(font);
+        self
+    }
+
+    /// Replace the fallback list (tried in order after the primary font).
+    pub fn fallbacks(mut self, fonts: impl IntoIterator<Item = LoadFont>) -> Self {
+        self.fallbacks = fonts.into_iter().collect();
+        self
+    }
+
+    /// Weight (100..=900) applied to every variable font in the chain, through the `wght`
+    /// axis, in shaping and in rasterizing. Static fonts ignore it; pick a static file with
+    /// [`FontFamily::pick`](crate::font::FontFamily::pick) instead.
+    pub fn weight(mut self, weight: f32) -> Self {
+        self.weight = Some(weight);
+        self
+    }
+
+    /// Primary font then fallbacks, with the requested weight applied.
+    pub(crate) fn chain_fonts(&self) -> Vec<LoadFont> {
+        let mut v = Vec::with_capacity(1 + self.fallbacks.len());
+        v.push(self.font.clone());
+        v.extend(self.fallbacks.iter().cloned());
+        if let Some(w) = self.weight {
+            for f in v.iter_mut() {
+                *f = f.with_weight(w);
+            }
+        }
+        v
+    }
+}
+
+/// Result of [`measure_text`]: what [`Ghe2d::draw_text`](crate::Ghe2d::draw_text) would lay out.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TextMeasure {
+    /// Width in pixels of the widest line, shaped with the same font chain as drawing.
+    pub width: f32,
+    /// Height in pixels of the line block (first line top to last line bottom).
+    pub height: f32,
+    /// Effective size after shrink-to-fit (equals the requested size when nothing shrinks).
+    pub size: f32,
+    /// The visual lines (after word wrap, when enabled).
+    pub lines: Vec<String>,
+}
+
+/// Measure `opts` exactly the way `draw_text` lays it out (same chain, same shaping, same
+/// wrapping and shrink-to-fit), without drawing, so a layout measured ahead of time breaks
+/// lines exactly like the final drawing.
+pub fn measure_text(opts: &TextOptions) -> TextMeasure {
+    let empty = TextMeasure { width: 0.0, height: 0.0, size: opts.size, lines: Vec::new() };
+    if opts.text.is_empty() {
+        return empty;
+    }
+    let fonts = opts.chain_fonts();
+    let chain = Chain::new(&fonts);
+    let Some(em) = chain.primary_em() else {
+        return empty;
+    };
+    let (size, lines) = fit(opts, &chain, em);
+    if size < MIN_SIZE || lines.is_empty() {
+        return empty;
+    }
+    let px_em = chain.px_per_em(size, em);
+    let width = lines.iter().map(|l| measure_line(&chain, l, px_em)).fold(0.0_f32, f32::max);
+    let height = block_height(opts, size, lines.len());
+    TextMeasure { width, height, size, lines }
+}
+
+/// Width in pixels of `text` on one line at `size`, shaped through `font` then `fallbacks`.
+/// The weight is whatever each font was loaded with (see [`LoadFont::with_weight`]).
+/// With several `\n` lines it returns the widest.
+pub fn text_width(font: &LoadFont, fallbacks: &[LoadFont], text: &str, size: f32) -> f32 {
+    let mut fonts = Vec::with_capacity(1 + fallbacks.len());
+    fonts.push(font.clone());
+    fonts.extend(fallbacks.iter().cloned());
+    let chain = Chain::new(&fonts);
+    let Some(em) = chain.primary_em() else {
+        return 0.0;
+    };
+    let px_em = chain.px_per_em(size, em);
+    text.split('\n').map(|l| measure_line(&chain, l, px_em)).fold(0.0_f32, f32::max)
 }
 
 pub fn draw_text(img: &mut image::RgbaImage, opts: &TextOptions) {
@@ -161,24 +250,22 @@ pub fn draw_text(img: &mut image::RgbaImage, opts: &TextOptions) {
         return;
     }
 
-    let vmu = opts.font.font.v_metrics_unscaled();
-    let em = vmu.ascent - vmu.descent;
-    if em <= 0.0 {
+    let fonts = opts.chain_fonts();
+    let chain = Chain::new(&fonts);
+    let Some(em) = chain.primary_em() else {
         return;
-    }
+    };
 
-    let face = opts.font.shaper_face();
     let base_rtl = base_is_rtl(&opts.text);
 
-    let (size, lines) = fit(opts, &face, em);
+    let (size, lines) = fit(opts, &chain, em);
     if size < MIN_SIZE || lines.is_empty() {
         return;
     }
 
     let scale = rusttype::Scale::uniform(size);
     let vm = opts.font.font.v_metrics(scale);
-    let sf = size / em;
-    let glyph_count = opts.font.font.glyph_count() as u32;
+    let px_em = chain.px_per_em(size, em);
 
     let (first_baseline, advance) = baselines_for(opts, &vm, lines.len());
 
@@ -187,9 +274,10 @@ pub fn draw_text(img: &mut image::RgbaImage, opts: &TextOptions) {
             continue;
         }
         let baseline = first_baseline + i as f32 * advance;
-        let line_w = measure_line(&face, line, sf);
+        let glyphs = layout_line(&chain, line, px_em);
+        let line_w: f32 = glyphs.iter().map(|g| g.advance).sum();
         let start_x = align_start_x(opts, base_rtl, line_w);
-        render_line(img, &face, &opts.font.font, line, baseline, start_x, scale, sf, glyph_count, opts.color);
+        render_glyphs(img, &chain, &glyphs, baseline, start_x, opts.color);
     }
 }
 
@@ -198,43 +286,157 @@ fn base_is_rtl(text: &str) -> bool {
     bidi.paragraphs.first().map(|p| p.level.is_rtl()).unwrap_or(false)
 }
 
-/// Total shaped width of one line, in pixels, at the given design-unit -> pixel factor.
-fn measure_line(face: &rustybuzz::Face<'_>, line: &str, sf: f32) -> f32 {
+/// The font chain with a shaping face per font. Index 0 is the primary font.
+struct Chain<'a> {
+    faces: Vec<rustybuzz::Face<'a>>,
+    upem: Vec<f32>,
+}
+
+impl<'a> Chain<'a> {
+    fn new(fonts: &'a [LoadFont]) -> Self {
+        let faces: Vec<_> = fonts.iter().map(|f| f.shaper_face()).collect();
+        let upem = faces.iter().map(|f| f.units_per_em() as f32).collect();
+        Chain { faces, upem }
+    }
+
+    /// Ascent minus descent of the primary font in design units: the basis `size` has
+    /// always been relative to. `None` for a degenerate font.
+    fn primary_em(&self) -> Option<f32> {
+        let f = self.faces.first()?;
+        let em = f.ascender() as f32 - f.descender() as f32;
+        (em > 0.0).then_some(em)
+    }
+
+    /// Pixels per em of the primary font at `size`. Fallback fonts are scaled to the same
+    /// pixels per em, so mixed text keeps one visual size.
+    fn px_per_em(&self, size: f32, em: f32) -> f32 {
+        size / em * self.upem[0]
+    }
+
+    /// Index of the first font that maps `c`; 0 (primary, drawing .notdef) when none does.
+    fn font_for(&self, c: char) -> usize {
+        self.faces
+            .iter()
+            .position(|f| f.glyph_index(c).map(|g| g.0 != 0).unwrap_or(false))
+            .unwrap_or(0)
+    }
+}
+
+/// Characters that never pick a font of their own: they stay with the preceding character
+/// so marks, joiners and spaces are not split away from their base.
+fn inherits_font(c: char) -> bool {
+    let u = c as u32;
+    c.is_control()
+        || c.is_whitespace()
+        || matches!(u,
+            0x0300..=0x036F | 0x0483..=0x0489 | 0x0591..=0x05BD | 0x05BF | 0x05C1..=0x05C2
+            | 0x05C4..=0x05C5 | 0x05C7 | 0x0610..=0x061A | 0x064B..=0x065F | 0x0670
+            | 0x06D6..=0x06DC | 0x06DF..=0x06E4 | 0x06E7..=0x06E8 | 0x06EA..=0x06ED
+            | 0x200B..=0x200F | 0x202A..=0x202E | 0x2060..=0x206F | 0xFE00..=0xFE0F
+            | 0xFE20..=0xFE2F | 0xE0100..=0xE01EF)
+}
+
+/// One positioned glyph in visual order. All lengths in pixels.
+struct PlacedGlyph {
+    font: usize,
+    gid: u32,
+    /// Pixels per design unit of `font` at the drawn size.
+    scale: f32,
+    advance: f32,
+    x_offset: f32,
+    y_offset: f32,
+    /// False for a missing glyph of a blank character (nothing to draw).
+    paint: bool,
+}
+
+/// Split a bidi run into `(font index, byte range)` pieces in logical order.
+fn split_by_font(chain: &Chain<'_>, run_text: &str) -> Vec<(usize, std::ops::Range<usize>)> {
+    let mut out: Vec<(usize, std::ops::Range<usize>)> = Vec::new();
+    let mut prev: Option<usize> = None;
+    for (i, c) in run_text.char_indices() {
+        let fi = if inherits_font(c) {
+            prev.unwrap_or_else(|| chain.font_for(c))
+        } else {
+            chain.font_for(c)
+        };
+        prev = Some(fi);
+        let end = i + c.len_utf8();
+        match out.last_mut() {
+            Some((f, r)) if *f == fi => r.end = end,
+            _ => out.push((fi, i..end)),
+        }
+    }
+    out
+}
+
+/// Bidi-reorder, split by font, shape: the glyphs of one line in visual order. Shared by
+/// measuring and drawing so both always agree.
+fn layout_line(chain: &Chain<'_>, line: &str, px_em: f32) -> Vec<PlacedGlyph> {
+    let mut out = Vec::new();
     if line.is_empty() {
-        return 0.0;
+        return out;
     }
     let bidi = unicode_bidi::BidiInfo::new(line, None);
     let Some(para) = bidi.paragraphs.first() else {
-        return 0.0;
+        return out;
     };
     let (levels, runs) = bidi.visual_runs(para, para.range.clone());
 
-    let mut width = 0.0f32;
     for run in runs {
         let run_text = &line[run.clone()];
         if run_text.is_empty() {
             continue;
         }
         let rtl = levels[run.start].is_rtl();
-        let mut buf = rustybuzz::UnicodeBuffer::new();
-        buf.push_str(run_text);
-        buf.set_direction(if rtl {
-            rustybuzz::Direction::RightToLeft
-        } else {
-            rustybuzz::Direction::LeftToRight
-        });
-        buf.guess_segment_properties();
-        let shaped = rustybuzz::shape(face, &[], buf);
-        for pos in shaped.glyph_positions() {
-            width += pos.x_advance as f32 * sf;
+        let mut pieces = split_by_font(chain, run_text);
+        if rtl {
+            // Visual order of an RTL run is the reverse of its logical pieces.
+            pieces.reverse();
+        }
+        for (fi, range) in pieces {
+            let piece = &run_text[range];
+            let sf = px_em / chain.upem[fi];
+            let mut buf = rustybuzz::UnicodeBuffer::new();
+            buf.push_str(piece);
+            buf.set_direction(if rtl {
+                rustybuzz::Direction::RightToLeft
+            } else {
+                rustybuzz::Direction::LeftToRight
+            });
+            buf.guess_segment_properties();
+            let shaped = rustybuzz::shape(&chain.faces[fi], &[], buf);
+            for (info, pos) in shaped.glyph_infos().iter().zip(shaped.glyph_positions()) {
+                // A glyph id of 0 is .notdef: draw it (visible box) unless the character
+                // is blank, so a missing character never vanishes silently.
+                let paint = info.glyph_id != 0
+                    || piece
+                        .get(info.cluster as usize..)
+                        .and_then(|s| s.chars().next())
+                        .map(|c| !inherits_font(c))
+                        .unwrap_or(false);
+                out.push(PlacedGlyph {
+                    font: fi,
+                    gid: info.glyph_id,
+                    scale: sf,
+                    advance: pos.x_advance as f32 * sf,
+                    x_offset: pos.x_offset as f32 * sf,
+                    y_offset: pos.y_offset as f32 * sf,
+                    paint,
+                });
+            }
         }
     }
-    width
+    out
+}
+
+/// Total shaped width of one line, in pixels.
+fn measure_line(chain: &Chain<'_>, line: &str, px_em: f32) -> f32 {
+    layout_line(chain, line, px_em).iter().map(|g| g.advance).sum()
 }
 
 /// Greedy word wrap. A single word wider than `width` gets its own line and overflows
 /// (glyphs are never split). An empty logical line stays as one empty visual line.
-fn wrap_line(face: &rustybuzz::Face<'_>, line: &str, sf: f32, width: f32) -> Vec<String> {
+fn wrap_line(chain: &Chain<'_>, line: &str, px_em: f32, width: f32) -> Vec<String> {
     let words: Vec<&str> = line.split_whitespace().collect();
     if words.is_empty() {
         return vec![String::new()];
@@ -248,7 +450,7 @@ fn wrap_line(face: &rustybuzz::Face<'_>, line: &str, sf: f32, width: f32) -> Vec
         } else {
             format!("{cur} {w}")
         };
-        if !cur.is_empty() && measure_line(face, &candidate, sf) > width {
+        if !cur.is_empty() && measure_line(chain, &candidate, px_em) > width {
             out.push(std::mem::take(&mut cur));
             cur = w.to_string();
         } else {
@@ -281,7 +483,7 @@ fn block_height(opts: &TextOptions, size: f32, n: usize) -> f32 {
 }
 
 /// Resolve the effective size and the visual lines to draw.
-fn fit(opts: &TextOptions, face: &rustybuzz::Face<'_>, em: f32) -> (f32, Vec<String>) {
+fn fit(opts: &TextOptions, chain: &Chain<'_>, em: f32) -> (f32, Vec<String>) {
     let logical: Vec<&str> = opts.text.split('\n').collect();
 
     let Some(width) = opts.width else {
@@ -289,9 +491,9 @@ fn fit(opts: &TextOptions, face: &rustybuzz::Face<'_>, em: f32) -> (f32, Vec<Str
     };
 
     let build = |size: f32| -> Vec<String> {
-        let sf = size / em;
+        let px_em = chain.px_per_em(size, em);
         if opts.wrap {
-            logical.iter().flat_map(|l| wrap_line(face, l, sf, width)).collect()
+            logical.iter().flat_map(|l| wrap_line(chain, l, px_em, width)).collect()
         } else {
             logical.iter().map(|l| (*l).to_string()).collect()
         }
@@ -299,11 +501,11 @@ fn fit(opts: &TextOptions, face: &rustybuzz::Face<'_>, em: f32) -> (f32, Vec<Str
 
     let fits = |size: f32| -> bool {
         let lines = build(size);
-        let sf = size / em;
+        let px_em = chain.px_per_em(size, em);
         let w_ok = opts.wrap
             || lines
                 .iter()
-                .map(|l| measure_line(face, l, sf))
+                .map(|l| measure_line(chain, l, px_em))
                 .fold(0.0_f32, f32::max)
                 <= width + 0.5;
         let h_ok = match opts.height {
@@ -390,74 +592,155 @@ fn align_start_x(opts: &TextOptions, base_rtl: bool, line_w: f32) -> f32 {
     start.max(opts.x)
 }
 
-#[allow(clippy::too_many_arguments)]
-fn render_line(
+
+/// Collects a glyph outline in pixel space (y down) for the path rasterizer.
+struct OutlineCollector {
+    scale: f32,
+    segs: Vec<Seg>,
+    last: (f32, f32),
+    start: (f32, f32),
+    min: (f32, f32),
+    max: (f32, f32),
+}
+
+enum Seg {
+    Line((f32, f32), (f32, f32)),
+    Quad((f32, f32), (f32, f32), (f32, f32)),
+    Cubic((f32, f32), (f32, f32), (f32, f32), (f32, f32)),
+}
+
+impl OutlineCollector {
+    fn p(&mut self, x: f32, y: f32) -> (f32, f32) {
+        let p = (x * self.scale, -y * self.scale);
+        self.min = (self.min.0.min(p.0), self.min.1.min(p.1));
+        self.max = (self.max.0.max(p.0), self.max.1.max(p.1));
+        p
+    }
+}
+
+impl rustybuzz::ttf_parser::OutlineBuilder for OutlineCollector {
+    fn move_to(&mut self, x: f32, y: f32) {
+        let p = self.p(x, y);
+        self.last = p;
+        self.start = p;
+    }
+    fn line_to(&mut self, x: f32, y: f32) {
+        let p = self.p(x, y);
+        self.segs.push(Seg::Line(self.last, p));
+        self.last = p;
+    }
+    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
+        let c = self.p(x1, y1);
+        let p = self.p(x, y);
+        self.segs.push(Seg::Quad(self.last, c, p));
+        self.last = p;
+    }
+    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
+        let c1 = self.p(x1, y1);
+        let c2 = self.p(x2, y2);
+        let p = self.p(x, y);
+        self.segs.push(Seg::Cubic(self.last, c1, c2, p));
+        self.last = p;
+    }
+    fn close(&mut self) {
+        if self.last != self.start {
+            self.segs.push(Seg::Line(self.last, self.start));
+        }
+        self.last = self.start;
+    }
+}
+
+/// Largest glyph bitmap side we rasterize (guards absurd sizes).
+const MAX_GLYPH_PX: f32 = 8192.0;
+
+fn render_glyphs(
     img: &mut image::RgbaImage,
-    face: &rustybuzz::Face<'_>,
-    font: &rusttype::Font<'_>,
-    line: &str,
+    chain: &Chain<'_>,
+    glyphs: &[PlacedGlyph],
     baseline: f32,
     start_x: f32,
-    scale: rusttype::Scale,
-    sf: f32,
-    glyph_count: u32,
     color: Rgba,
 ) {
-    let bidi = unicode_bidi::BidiInfo::new(line, None);
-    let Some(para) = bidi.paragraphs.first() else {
-        return;
-    };
-    let (levels, runs) = bidi.visual_runs(para, para.range.clone());
-
     let mut pen_x = start_x;
-    for run in runs {
-        let run_text = &line[run.clone()];
-        if run_text.is_empty() {
-            continue;
+    for g in glyphs {
+        if g.paint {
+            paint_glyph(
+                img,
+                &chain.faces[g.font],
+                g.gid,
+                g.scale,
+                pen_x + g.x_offset,
+                baseline - g.y_offset,
+                color,
+            );
         }
-        let rtl = levels[run.start].is_rtl();
-        let mut buf = rustybuzz::UnicodeBuffer::new();
-        buf.push_str(run_text);
-        buf.set_direction(if rtl {
-            rustybuzz::Direction::RightToLeft
-        } else {
-            rustybuzz::Direction::LeftToRight
-        });
-        buf.guess_segment_properties();
-        let shaped = rustybuzz::shape(face, &[], buf);
+        pen_x += g.advance;
+    }
+}
 
-        for (info, pos) in shaped.glyph_infos().iter().zip(shaped.glyph_positions()) {
-            let gid = info.glyph_id;
-            let gx = pen_x + pos.x_offset as f32 * sf;
-            let gy = baseline - pos.y_offset as f32 * sf;
+/// Rasterize one glyph outline (variations already applied on `face`) and blend it.
+fn paint_glyph(
+    img: &mut image::RgbaImage,
+    face: &rustybuzz::Face<'_>,
+    gid: u32,
+    sf: f32,
+    gx: f32,
+    gy: f32,
+    color: Rgba,
+) {
+    use ab_glyph_rasterizer::{point, Rasterizer};
 
-            if gid != 0 && gid < glyph_count {
-                let glyph = font
-                    .glyph(rusttype::GlyphId(gid as u16))
-                    .scaled(scale)
-                    .positioned(rusttype::point(gx, gy));
+    if gid > u16::MAX as u32 {
+        return;
+    }
+    let mut oc = OutlineCollector {
+        scale: sf,
+        segs: Vec::new(),
+        last: (0.0, 0.0),
+        start: (0.0, 0.0),
+        min: (f32::MAX, f32::MAX),
+        max: (f32::MIN, f32::MIN),
+    };
+    if face
+        .outline_glyph(rustybuzz::ttf_parser::GlyphId(gid as u16), &mut oc)
+        .is_none()
+        || oc.segs.is_empty()
+    {
+        return;
+    }
+    let (min, max) = (oc.min, oc.max);
+    if !(max.0 - min.0 < MAX_GLYPH_PX && max.1 - min.1 < MAX_GLYPH_PX) {
+        return;
+    }
+    let bx = (gx + min.0).floor() as i32;
+    let by = (gy + min.1).floor() as i32;
+    let w = ((gx + max.0).ceil() as i32 - bx + 1).max(1) as usize;
+    let h = ((gy + max.1).ceil() as i32 - by + 1).max(1) as usize;
 
-                if let Some(bb) = glyph.pixel_bounding_box() {
-                    glyph.draw(|dx, dy, v| {
-                        let px = bb.min.x + dx as i32;
-                        let py = bb.min.y + dy as i32;
-                        if px < 0 || py < 0 {
-                            return;
-                        }
-                        let (px, py) = (px as u32, py as u32);
-                        let Some(pixel) = img.get_pixel_checked(px, py) else {
-                            return;
-                        };
-                        let alpha = (v * 255.0) as u8;
-                        let background =
-                            Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]);
-                        // glyph coverage already folds into `alpha`; write the result directly
-                        img.put_pixel(px, py, Rgba::blend_with_alpha(&color, background, alpha));
-                    });
-                }
-            }
-
-            pen_x += pos.x_advance as f32 * sf;
+    let ox = gx - bx as f32;
+    let oy = gy - by as f32;
+    let pt = |p: (f32, f32)| point(p.0 + ox, p.1 + oy);
+    let mut r = Rasterizer::new(w, h);
+    for s in &oc.segs {
+        match *s {
+            Seg::Line(a, b) => r.draw_line(pt(a), pt(b)),
+            Seg::Quad(a, b, c) => r.draw_quad(pt(a), pt(b), pt(c)),
+            Seg::Cubic(a, b, c, d) => r.draw_cubic(pt(a), pt(b), pt(c), pt(d)),
         }
     }
+    r.for_each_pixel_2d(|dx, dy, v| {
+        let px = bx + dx as i32;
+        let py = by + dy as i32;
+        if px < 0 || py < 0 {
+            return;
+        }
+        let (px, py) = (px as u32, py as u32);
+        let Some(pixel) = img.get_pixel_checked(px, py) else {
+            return;
+        };
+        let alpha = (v * 255.0) as u8;
+        let background = Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]);
+        // glyph coverage already folds into `alpha`; write the result directly
+        img.put_pixel(px, py, Rgba::blend_with_alpha(&color, background, alpha));
+    });
 }

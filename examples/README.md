@@ -1,6 +1,6 @@
 # ghe2d examples
 
-Eight runnable examples that together drive every public entry point of the crate. Each
+Nine runnable examples that together drive every public entry point of the crate. Each
 writes generated images into `target/example-output/` (created on run).
 
 ```bash
@@ -12,6 +12,7 @@ cargo run --example 05_poster_pipeline        # full composition + multi-font te
 cargo run --example 06_edge_cases_and_errors  # every Ghe2dError variant + all hardened panic/abort paths
 cargo run --example 07_image_formats          # encode one canvas as PNG / JPEG (+ background) / WebP, compare sizes, round-trip
 cargo run --example 08_shapes                 # polygon (3..8 sides) / star / rhombus / line, rotation, fill + stroke
+cargo run --example 09_animation_and_fonts    # 0.2.1: font fallback chain, variable weights, FontFamily::pick, measure_text, make an animated GIF -> read it -> convert to animated WebP (+ crop/resize), DecodeLimits
 ```
 
 `06_edge_cases_and_errors` prints an `OK / FAIL` line per case and must finish without a
@@ -31,5 +32,8 @@ panic — it is the "everything is theoretically sound" check.
 Text is shaped with `rustybuzz` (OpenType) + `unicode-bidi`, so any font that has the base
 glyphs renders correctly — no Arabic Presentation Forms required.
 
+Example 09 also uses the variable font `tests/fixtures/Cairo-Variable.ttf` (SIL Open Font
+License 1.1).
+
 These `.ttf` files are **not** packaged into the published crate (the `include` globs in
-`Cargo.toml` only match `**/*.rs`).
+`Cargo.toml` only match the `.rs` files under `src/`, `tests/` and `examples/`).
