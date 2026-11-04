@@ -1,6 +1,6 @@
 [package]
 name = "ghe2d"
-version = "0.2.1"
+version = "0.2.2"
 rust-version = "1.80"
 edition = "2021"
 description = "A simple 2D image canvas: anti-aliased shapes, real text shaping (Arabic / RTL / bidi), image compositing, and PNG / JPEG / WebP export — all through a small builder API."

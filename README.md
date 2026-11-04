@@ -81,6 +81,9 @@ c.draw_text(
 );
 ```
 
+`size` is the pixel height of ascent minus descent. To match a browser's CSS `font-size` use
+`.css_size(px)` (or `font.css_to_size(px)`), which converts through the font's own metrics.
+
 `LineLayout`: `Gap(px)` (default), `Top(px)` / `Middle(px)` / `Bottom(px)` and
 `SpaceBetween` / `SpaceEvenly` (the last four need `height`).
 
@@ -123,8 +126,8 @@ lands in `target/example-output/`.
 
 ## Status
 
-`0.2.0` is a large, breaking rewrite of `0.1.x` (options builders everywhere, real text
-shaping, JPEG support, hardened error handling). See [`CHANGELOG.md`](CHANGELOG.md) for the
-full list and a migration snippet.
+`0.2.x` is a breaking rewrite of `0.1.x` (options builders everywhere, real text shaping,
+JPEG support, hardened error handling), with animation, font fallback and variable fonts
+added since. See [`CHANGELOG.md`](CHANGELOG.md) for the latest release.
 
 License: [LICENSE-MIT](LICENSE).

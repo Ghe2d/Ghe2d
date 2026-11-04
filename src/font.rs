@@ -92,6 +92,37 @@ impl LoadFont {
         out
     }
 
+    /// Convert a CSS `font-size` (em size in pixels) to the `size` value of
+    /// [`TextOptions::size`](crate::TextOptions::size).
+    ///
+    /// `size` is the pixel height of ascent minus descent (the font's `hhea` values), while a
+    /// browser's `font-size` is the em square, so the same number draws at different scales.
+    /// With this the glyphs come out at the size a browser would use. Returns `css_px`
+    /// unchanged for a degenerate font.
+    pub fn css_to_size(&self, css_px: f32) -> f32 {
+        match self.line_ratio() {
+            Some(r) => css_px * r,
+            None => css_px,
+        }
+    }
+
+    /// Inverse of [`css_to_size`](Self::css_to_size): the CSS `font-size` that a ghe2d
+    /// `size` corresponds to.
+    pub fn size_to_css(&self, size: f32) -> f32 {
+        match self.line_ratio() {
+            Some(r) => size / r,
+            None => size,
+        }
+    }
+
+    /// (ascent - descent) / units-per-em from the font's `hhea` table.
+    fn line_ratio(&self) -> Option<f32> {
+        let f = rustybuzz::Face::from_slice(&self.data, 0)?;
+        let upem = f.units_per_em() as f32;
+        let em = f.ascender() as f32 - f.descender() as f32;
+        (upem > 0.0 && em > 0.0).then_some(em / upem)
+    }
+
     /// Whether the font maps `c` to a real glyph (not `.notdef`).
     pub fn has_glyph(&self, c: char) -> bool {
         rustybuzz::Face::from_slice(&self.data, 0)

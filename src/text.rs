@@ -122,6 +122,15 @@ impl TextOptions {
         self
     }
 
+    /// Requested size as a CSS `font-size` (the em size in pixels), the number a browser
+    /// uses for the same text. Converts through the primary font's ascent and descent (see
+    /// [`LoadFont::css_to_size`]) and replaces any earlier [`size`](Self::size). Call it
+    /// after the primary font is set (it is the one given to [`TextOptions::new`]).
+    pub fn css_size(mut self, css_px: f32) -> Self {
+        self.size = self.font.css_to_size(css_px);
+        self
+    }
+
     pub fn color(mut self, color: Rgba) -> Self {
         self.color = color;
         self
@@ -369,6 +378,48 @@ fn split_by_font(chain: &Chain<'_>, run_text: &str) -> Vec<(usize, std::ops::Ran
     out
 }
 
+/// The real script of `c`, or `None` for Common / Inherited / unknown characters (spaces,
+/// punctuation, digits, marks), which take the script of their surroundings.
+fn strong_script(c: char) -> Option<rustybuzz::Script> {
+    if c.is_ascii() {
+        return c.is_ascii_alphabetic().then_some(rustybuzz::script::LATIN);
+    }
+    let mut buf = rustybuzz::UnicodeBuffer::new();
+    buf.push_str(c.encode_utf8(&mut [0u8; 4]));
+    buf.guess_segment_properties();
+    let s = buf.script();
+    (s != rustybuzz::script::COMMON
+        && s != rustybuzz::script::INHERITED
+        && s != rustybuzz::script::UNKNOWN)
+        .then_some(s)
+}
+
+/// Effective script per byte offset of `line` (valid at every char start). A character
+/// without a script of its own takes the script of the nearest preceding character that has
+/// one, like browsers itemize runs; leading ones take the first script found after them.
+/// This matters for fonts whose `locl` / `calt` rules depend on the script, e.g. a space after
+/// Arabic text gets the Arabic space even when it lands in a left-to-right bidi run.
+fn effective_scripts(line: &str) -> Vec<Option<rustybuzz::Script>> {
+    let mut out = vec![None; line.len()];
+    let mut cur: Option<rustybuzz::Script> = None;
+    for (i, c) in line.char_indices() {
+        if let Some(s) = strong_script(c) {
+            cur = Some(s);
+        }
+        out[i] = cur;
+    }
+    // Leading characters before the first strong one.
+    if let Some(first) = out.iter().flatten().next().copied() {
+        for (i, _) in line.char_indices() {
+            if out[i].is_some() {
+                break;
+            }
+            out[i] = Some(first);
+        }
+    }
+    out
+}
+
 /// Bidi-reorder, split by font, shape: the glyphs of one line in visual order. Shared by
 /// measuring and drawing so both always agree.
 fn layout_line(chain: &Chain<'_>, line: &str, px_em: f32) -> Vec<PlacedGlyph> {
@@ -381,6 +432,7 @@ fn layout_line(chain: &Chain<'_>, line: &str, px_em: f32) -> Vec<PlacedGlyph> {
         return out;
     };
     let (levels, runs) = bidi.visual_runs(para, para.range.clone());
+    let scripts = effective_scripts(line);
 
     for run in runs {
         let run_text = &line[run.clone()];
@@ -388,12 +440,28 @@ fn layout_line(chain: &Chain<'_>, line: &str, px_em: f32) -> Vec<PlacedGlyph> {
             continue;
         }
         let rtl = levels[run.start].is_rtl();
-        let mut pieces = split_by_font(chain, run_text);
+        // Split by font, then by effective script (both in logical order).
+        let mut pieces: Vec<(usize, std::ops::Range<usize>)> = Vec::new();
+        for (fi, range) in split_by_font(chain, run_text) {
+            let mut start = range.start;
+            let mut cur = scripts[run.start + start];
+            for (off, _) in run_text[range.clone()].char_indices().skip(1) {
+                let at = range.start + off;
+                let sc = scripts[run.start + at];
+                if sc != cur {
+                    pieces.push((fi, start..at));
+                    start = at;
+                    cur = sc;
+                }
+            }
+            pieces.push((fi, start..range.end));
+        }
         if rtl {
             // Visual order of an RTL run is the reverse of its logical pieces.
             pieces.reverse();
         }
         for (fi, range) in pieces {
+            let script = scripts[run.start + range.start];
             let piece = &run_text[range];
             let sf = px_em / chain.upem[fi];
             let mut buf = rustybuzz::UnicodeBuffer::new();
@@ -403,6 +471,9 @@ fn layout_line(chain: &Chain<'_>, line: &str, px_em: f32) -> Vec<PlacedGlyph> {
             } else {
                 rustybuzz::Direction::LeftToRight
             });
+            if let Some(sc) = script {
+                buf.set_script(sc);
+            }
             buf.guess_segment_properties();
             let shaped = rustybuzz::shape(&chain.faces[fi], &[], buf);
             for (info, pos) in shaped.glyph_infos().iter().zip(shaped.glyph_positions()) {
