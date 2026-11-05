@@ -5,6 +5,8 @@ pub mod utility;
 pub mod font;
 pub mod shapes;
 pub mod anim;
+pub mod layer;
+pub mod fit;
 
 pub use rusttype;
 pub use rustybuzz;
@@ -25,8 +27,11 @@ pub use anim::{
     DecodeLimits,
 };
 pub use shapes::{
-    CircleOptions, LineOptions, PolygonOptions, RectOptions, RhombusOptions, StarOptions, Stroke,
+    CircleOptions, EllipseOptions, LineOptions, PathOptions, PolygonOptions, RectOptions,
+    RhombusOptions, StarOptions, Stroke,
 };
+pub use layer::{Effects, Glow, GroupOptions, Shadow};
+pub use fit::{FitImageOptions, ImageFit};
 
 /// Load/decode failures produced by the internal image helpers.
 #[derive(Clone, Debug)]
@@ -144,6 +149,11 @@ impl Ghe2d {
         image_io::detect_format(bytes)
     }
 
+    /// Wraps an existing RGBA image as a canvas (no format is recorded).
+    pub fn from_image(image: image::RgbaImage) -> Self {
+        Ghe2d { width: image.width(), height: image.height(), image, format: None }
+    }
+
     pub fn width(&self) -> u32 {
         self.width
     }
@@ -219,6 +229,74 @@ impl Ghe2d {
 
     pub fn draw_line(&mut self, opts: shapes::LineOptions) -> &mut Self {
         shapes::draw_line(&mut self.image, &opts);
+        self
+    }
+
+    pub fn draw_ellipse(&mut self, opts: shapes::EllipseOptions) -> &mut Self {
+        shapes::draw_ellipse(&mut self.image, &opts);
+        self
+    }
+
+    /// A polygon or polyline through any list of points.
+    pub fn draw_path(&mut self, opts: shapes::PathOptions) -> &mut Self {
+        shapes::draw_path(&mut self.image, &opts);
+        self
+    }
+
+    /// Draw an already decoded image into a box (cover / contain / fill), with rotation,
+    /// opacity, shadow and glow from `opts`.
+    pub fn draw_image_fit(&mut self, src: &image::RgbaImage, opts: fit::FitImageOptions) -> &mut Self {
+        layer::draw_drawable(&mut self.image, &fit::FitDraw { src, opts });
+        self
+    }
+
+    /// Decode `bytes` (any supported format) and draw it into a box, like
+    /// [`draw_image_fit`](Self::draw_image_fit).
+    pub fn draw_image_fit_bytes(
+        &mut self,
+        bytes: &[u8],
+        opts: fit::FitImageOptions,
+    ) -> Result<&mut Self, Ghe2dError> {
+        if bytes.is_empty() {
+            return Err(Ghe2dError::Image(ErrorMessage::BufferEmpty));
+        }
+        let src = image::load_from_memory(bytes)
+            .map_err(|_| Ghe2dError::Image(ErrorMessage::FailedDecodeImage))?
+            .to_rgba8();
+        Ok(self.draw_image_fit(&src, opts))
+    }
+
+    /// Draw by hand into a box as one piece. `paint` gets a transparent canvas and the position
+    /// `(ox, oy)` of the box's top-left corner on it (draw at `ox + x`, `oy + y`); what it
+    /// draws is then clipped to the box (when `opts` says so), given the glow and the shadow
+    /// from its own shape, turned about the centre of the box, faded, and put on this canvas.
+    ///
+    /// ```
+    /// use ghe2d::{Ghe2d, GroupOptions, RectOptions, Shadow};
+    /// use ghe2d::utility::Rgba;
+    ///
+    /// let mut c = Ghe2d::new(200, 120);
+    /// c.draw_group(
+    ///     GroupOptions::new(40.0, 30.0, 120.0, 60.0)
+    ///         .rotation(10.0)
+    ///         .opacity(0.9)
+    ///         .shadow(Shadow::new(Rgba::new(0, 0, 0, 160)).offset(4.0, 6.0).blur(10.0)),
+    ///     |layer, ox, oy| {
+    ///         layer.draw_rect(RectOptions::solid(ox, oy, 120.0, 60.0, Rgba::rgb(240, 90, 60)));
+    ///     },
+    /// );
+    /// ```
+    pub fn draw_group(
+        &mut self,
+        opts: layer::GroupOptions,
+        paint: impl FnOnce(&mut Ghe2d, f32, f32),
+    ) -> &mut Self {
+        layer::run_group(&mut self.image, &opts, |layer_img, ox, oy| {
+            let taken = std::mem::replace(layer_img, image::RgbaImage::new(0, 0));
+            let mut g = Ghe2d::from_image(taken);
+            paint(&mut g, ox, oy);
+            *layer_img = g.image;
+        });
         self
     }
 }

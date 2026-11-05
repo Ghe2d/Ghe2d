@@ -4,7 +4,10 @@
 //! → per line, Unicode BiDi reordering (`unicode-bidi`) + OpenType shaping (`rustybuzz`)
 //! → glyph outlines (ttf-parser, variation-aware) rasterized with `ab_glyph_rasterizer` → clipped 1×1 alpha blend.
 
+use image::RgbaImage;
+
 use crate::font::LoadFont;
+use crate::layer::{draw_drawable, effect_setters, Bounds, Drawable, Effects};
 use crate::utility::Rgba;
 
 const MIN_SIZE: f32 = 1.0;
@@ -86,6 +89,9 @@ pub struct TextOptions {
     line_layout: LineLayout,
     fallbacks: Vec<LoadFont>,
     weight: Option<f32>,
+    shrink: bool,
+    rotation: f32,
+    effects: Effects,
 }
 
 impl TextOptions {
@@ -105,6 +111,9 @@ impl TextOptions {
             line_layout: LineLayout::default(),
             fallbacks: Vec::new(),
             weight: None,
+            shrink: true,
+            rotation: 0.0,
+            effects: Effects::default(),
         }
     }
 
@@ -189,6 +198,23 @@ impl TextOptions {
         self
     }
 
+    /// With `width` set and `wrap(false)`: `true` (default) shrinks the size until the widest
+    /// line fits, `false` keeps the size and uses `width` for alignment only (a longer line runs
+    /// out of the box). It also stops the height shrink.
+    pub fn shrink_to_fit(mut self, shrink: bool) -> Self {
+        self.shrink = shrink;
+        self
+    }
+
+    /// Turn the whole text block by `degrees` (clockwise) about the centre of its box (the
+    /// `width` by `height` box when set, the measured text otherwise).
+    pub fn rotation(mut self, degrees: f32) -> Self {
+        self.rotation = degrees;
+        self
+    }
+
+    effect_setters!();
+
     /// Primary font then fallbacks, with the requested weight applied.
     pub(crate) fn chain_fonts(&self) -> Vec<LoadFont> {
         let mut v = Vec::with_capacity(1 + self.fallbacks.len());
@@ -254,7 +280,42 @@ pub fn text_width(font: &LoadFont, fallbacks: &[LoadFont], text: &str, size: f32
     text.split('\n').map(|l| measure_line(&chain, l, px_em)).fold(0.0_f32, f32::max)
 }
 
-pub fn draw_text(img: &mut image::RgbaImage, opts: &TextOptions) {
+pub fn draw_text(img: &mut RgbaImage, opts: &TextOptions) {
+    draw_drawable(img, opts);
+}
+
+impl Drawable for TextOptions {
+    fn effects(&self) -> Effects {
+        self.effects
+    }
+    fn group_rotation(&self) -> f32 {
+        self.rotation
+    }
+    fn bounds(&self) -> Option<Bounds> {
+        let m = measure_text(self);
+        if m.lines.is_empty() || !self.x.is_finite() || !self.y.is_finite() {
+            return None;
+        }
+        let w = self.width.unwrap_or(m.width).max(m.width).max(1.0);
+        let h = self.height.unwrap_or(m.height).max(m.height).max(1.0);
+        Some((self.x, self.y, self.x + w, self.y + h))
+    }
+    /// Glyphs reach past the line box (accents, slanted letters, long tails).
+    fn extra_margin(&self) -> f32 {
+        measure_text(self).size * 0.6
+    }
+    fn shifted(&self, dx: f32, dy: f32) -> Self {
+        let mut t = self.clone();
+        t.x += dx;
+        t.y += dy;
+        t
+    }
+    fn paint(&self, img: &mut RgbaImage) {
+        paint_text(img, self);
+    }
+}
+
+fn paint_text(img: &mut image::RgbaImage, opts: &TextOptions) {
     if opts.text.is_empty() {
         return;
     }
@@ -586,7 +647,7 @@ fn fit(opts: &TextOptions, chain: &Chain<'_>, em: f32) -> (f32, Vec<String>) {
         w_ok && h_ok
     };
 
-    if fits(opts.size) {
+    if !opts.shrink || fits(opts.size) {
         return (opts.size, build(opts.size));
     }
 
@@ -810,8 +871,13 @@ fn paint_glyph(
             return;
         };
         let alpha = (v * 255.0) as u8;
+        if alpha == 0 {
+            return;
+        }
         let background = Rgba::new(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]);
-        // glyph coverage already folds into `alpha`; write the result directly
-        img.put_pixel(px, py, Rgba::blend_with_alpha(&color, background, alpha));
+        // The coverage scales the colour's own alpha, then it goes over the background: on a
+        // transparent canvas the edge pixels keep the colour of the text (no dark fringe).
+        let covered = Rgba { a: (color.a as u32 * alpha as u32 / 255) as u8, ..color };
+        img.put_pixel(px, py, Rgba::blend(covered, background));
     });
 }

@@ -1,6 +1,6 @@
 # ghe2d examples
 
-Nine runnable examples that together drive every public entry point of the crate. Each
+Ten runnable examples that together drive every public entry point of the crate. Each
 writes generated images into `target/example-output/` (created on run).
 
 ```bash
@@ -13,6 +13,7 @@ cargo run --example 06_edge_cases_and_errors  # every Ghe2dError variant + all h
 cargo run --example 07_image_formats          # encode one canvas as PNG / JPEG (+ background) / WebP, compare sizes, round-trip
 cargo run --example 08_shapes                 # polygon (3..8 sides) / star / rhombus / line, rotation, fill + stroke
 cargo run --example 09_animation_and_fonts    # 0.2.1: font fallback chain, variable weights, FontFamily::pick, measure_text, make an animated GIF -> read it -> convert to animated WebP (+ crop/resize), DecodeLimits
+cargo run --release --example 10_effects_and_layers   # 0.2.3: shadow / glow / opacity on every drawable, rotated text and images, rounded rect / ellipse / path, cover / contain / fill, groups with a clip, and the timing of a typical 1200x630 card (add `-- bench`)
 ```
 
 `06_edge_cases_and_errors` prints an `OK / FAIL` line per case and must finish without a
